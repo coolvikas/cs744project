@@ -13,7 +13,7 @@ void error(char *msg){
 
 int main(int argc, char *argv[]){
 
-  int sockfd, newsockfd, portno, clilen;
+  int sockfd, newsockfd, portno, clilen,x;
   char buffer[256];
   struct sockaddr_in server_addr, cli_addr;
   int n;
@@ -44,7 +44,29 @@ int main(int argc, char *argv[]){
     error("ERROR on accept");
   }
   bzero(buffer,256);
+
+
+  char c[500];
+
   n = read(newsockfd,buffer,256);
+  FILE *fptr,*fr;
+  fptr = fopen("new.txt","a");
+  x = fwrite(buffer,sizeof(buffer),1,fptr); // EACH ELEMENT IS OF SIZE 1 BYTE TO BE WRITTEN AND THERE ARE SIZEOF(BUFFER) ELEMENTS
+  fclose(fptr);
+
+  //printf("before fseek:%d",(ftell(fptr)) );
+  fseek(fptr, 0, SEEK_SET);
+  //printf("%d",(ftell(fptr)) );
+  fr = fopen("new.txt","r");
+  int i;
+  while(fgets(c,sizeof(c),fr)){
+     printf("Data from the file:\n%s", c);
+     for(i=0;i<sizeof(c);i++){
+       c[i]="";
+     }
+
+  }
+  fclose(fr);
   if(n<0){
     error("ERROR reading from socket");
   }
