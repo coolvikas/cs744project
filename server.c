@@ -44,32 +44,58 @@ int main(int argc, char *argv[]){
     error("ERROR on accept");
   }
   bzero(buffer,256);
-
-
-  char c[500];
+  //char c[500];
 
   n = read(newsockfd,buffer,256);
-  FILE *fptr,*fr;
-  fptr = fopen("new.txt","a");
-  x = fwrite(buffer,sizeof(buffer),1,fptr); // EACH ELEMENT IS OF SIZE 1 BYTE TO BE WRITTEN AND THERE ARE SIZEOF(BUFFER) ELEMENTS
-  fclose(fptr);
-
-  //printf("before fseek:%d",(ftell(fptr)) );
-  fseek(fptr, 0, SEEK_SET);
-  //printf("%d",(ftell(fptr)) );
-  fr = fopen("new.txt","r");
-  int i;
-  while(fgets(c,sizeof(c),fr)){
-     printf("Data from the file:\n%s", c);
-     for(i=0;i<sizeof(c);i++){
-       c[i]="";
-     }
-
-  }
-  fclose(fr);
   if(n<0){
     error("ERROR reading from socket");
   }
+  char uname[20],passwd[20];
+  char funame[20],fpasswd[20];
+  sscanf(buffer,"%s %s",&uname,&passwd);
+  printf("Received username from client is:\n" );
+  fputs(uname,stdout);
+  printf("\n" );
+  FILE *fptr;
+  char line[30];
+
+
+
+
+  int flag =1;
+  fptr = fopen("new.txt","r");
+  while(fgets(line,sizeof(line),fptr)!= NULL){
+    sscanf(line,"%s%s",&funame,&fpasswd);
+    if(!strcmp(uname,funame)){
+      printf("hello\n" );
+      flag =0;
+      break;
+    }
+
+    fputs(funame,stdout);
+    printf("\t" );
+    fputs(fpasswd,stdout);
+    printf("\n" );
+
+  }
+  fclose(fptr);
+  if(flag == 1){
+    fptr = fopen("new.txt","a");
+    char ch[]="\n";
+    char empty[] = " ";
+
+    fwrite(uname,strlen(uname),1,fptr); // EACH ELEMENT IS OF SIZE 1 BYTE TO BE WRITTEN AND THERE ARE SIZEOF(BUFFER) ELEMENTS
+    fwrite(empty,strlen(empty),1,fptr);
+    fwrite(passwd,strlen(passwd),1,fptr);
+    fwrite(ch,strlen(ch),1,fptr);
+
+    fclose(fptr);
+  }
+
+
+
+
+
   printf("Here is the message: %s\n", buffer);
   n = write(newsockfd,"Server says: I got ur message.\n",30);
   if(n<0){
