@@ -9,13 +9,13 @@
 #define BUFFER_SIZE 256
 
 
-void error(char *msg){
+void error(const char *msg){
   perror(msg);
   exit(0);
 }
 
 char* loginuser(){
-  char *buffer=malloc(sizeof(char)*BUFFER_SIZE);
+  char *buffer=(char *)(malloc(sizeof(char)*BUFFER_SIZE));
   char uname[20], password[20];
   printf("Enter username: " );
   scanf("%s",uname );
@@ -29,7 +29,7 @@ char* loginuser(){
 }
 
 char* signupuser(){
-  char *buffer=malloc(sizeof(char)*BUFFER_SIZE);
+  char *buffer=(char *)(malloc(sizeof(char)*BUFFER_SIZE));
   char uname[20], password[20];
   printf("Enter username: " );
   scanf("%s",uname );
@@ -107,7 +107,9 @@ int main(int argc, char *argv[])
           }
           else{
             printf("Client cannot be authenticated at server end.\n" );
+          
           }
+          break;
 
 
           case 2: //lets signup first
@@ -130,6 +132,7 @@ int main(int argc, char *argv[])
             else{
               printf("Please try again signup with different username and password.\n" );
             }
+            break;
           }
 
 
