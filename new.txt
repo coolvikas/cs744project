@@ -9,3 +9,4 @@ john snow
 cc meet
 observium root
 vikas scc
+moto g5

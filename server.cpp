@@ -1,13 +1,19 @@
 #include<stdio.h>
 #include<stdlib.h>
+#include<iostream>
 #include<sys/types.h>
 #include<sys/socket.h>
 #include<netinet/in.h>
+#include <map>
+#include <iterator>
 #include<string.h>
 #include<pthread.h>
 #include<unistd.h> //for read and write functions
 #include<arpa/inet.h> //for inet_ntop() function
 #define BUFFER_SIZE 256
+using namespace std;
+
+map <char*, int> mymap;
 
 struct clientArgs {
     int socket;
@@ -16,6 +22,35 @@ struct clientArgs {
 void error(const char *msg){
   perror(msg);
   exit(1);
+}
+
+int generatesessionid(char clientip[50]){
+	srand (time(NULL)); // generate a seed using the current time
+	
+	int sessionid = rand(); // generate a random session ID
+	cout<<"generated a new session id for client"<<sessionid<<endl;
+	mymap.insert(pair <char *, int> (clientip, sessionid)); //insert client ip and sessionid into global map
+	// printing map mymap
+  map <char *, int> :: iterator itr;
+  cout << "\nThe map mymap is : \n";
+  cout << "\tKEY\tELEMENT\n";
+  for (itr = mymap.begin(); itr != mymap.end(); ++itr)
+  {
+        cout  <<  '\t' << itr->first 
+              <<  '\t' << itr->second << '\n';
+  }
+  cout << endl;
+  return sessionid;
+}
+
+int checksessionactive(char clientip[50],int sessionid){
+	int sessionactiveflag=0;
+	if (mymap.count(clientip)>0){
+		if(mymap[clientip]==sessionid){
+			sessionactiveflag=1;
+		}
+	}
+	return sessionactiveflag;
 }
 
 void verifyuserlogin(int newsockfd,char buffer[BUFFER_SIZE],char clientip[50]){
@@ -33,6 +68,7 @@ void verifyuserlogin(int newsockfd,char buffer[BUFFER_SIZE],char clientip[50]){
   int flag =0;
   int n;
   fptr = fopen("new.txt","r");
+  cout<<"opened file to find client name"<<endl;
   while(fgets(line,sizeof(line),fptr)!= NULL){
     sscanf(line,"%s%s",funame,fpasswd);
     if(!strcmp(uname,funame)){
@@ -43,15 +79,14 @@ void verifyuserlogin(int newsockfd,char buffer[BUFFER_SIZE],char clientip[50]){
       }
     }
 
-    //fputs(funame,stdout);
-    //printf("\t" );
-    //fputs(fpasswd,stdout);
-    //printf("\n" );
-
-  }
+  } //while ends
+  fclose(fptr);
+  
   if(flag ==1 ){
+  			cout<<"Generating a session id"<<endl;
+  			int sessionid = generatesessionid(clientip);
         bzero(buffer,0);
-        sprintf(buffer,"1");
+        sprintf(buffer,"%d %d",flag,sessionid);
         n = write(newsockfd,buffer,strlen(buffer));
         if(n<0){
           error("ERROR writing to socket");
@@ -60,13 +95,15 @@ void verifyuserlogin(int newsockfd,char buffer[BUFFER_SIZE],char clientip[50]){
 
   else{
         bzero(buffer,0);
-        sprintf(buffer,"0");
+        int sessionid = 0;
+        sprintf(buffer,"%d %d",flag,sessionid);
+        cout<<"value in buffer before witing to client is"<<buffer<<endl;
         n = write(newsockfd,buffer,strlen(buffer));
         if(n<0){
           error("ERROR writing to socket");
         }
   }
-  fclose(fptr);
+  
   
 }
 
@@ -145,6 +182,35 @@ void signupuser(int newsockfd,char buffer[BUFFER_SIZE]){
  
 }
 
+void uploaduserfiles(int newsockfd, char buffer[BUFFER_SIZE],char clientip[50]){
+	cout<<"inside uploaduserfiles()"<<endl;
+	char filename[50];
+	int n;
+	int initial;
+	int sid;
+  sscanf(buffer,"%d %d %s",&initial,&sid,filename);
+  int sessionactiveflag=checksessionactive(clientip,sid);
+  bzero(buffer,BUFFER_SIZE);
+  if(sessionactiveflag==1){
+  	printf("session match found at server\n");
+  	sprintf(buffer,"%d",sessionactiveflag);
+  	n = write(newsockfd,buffer,strlen(buffer));
+  	if(n<0){
+  		error("Error writing to socket");
+  	}
+  }
+  else{
+  	printf("session match not found at server\n");
+  	sprintf(buffer,"%d",sessionactiveflag);
+  	n = write(newsockfd,buffer,strlen(buffer));
+  	if(n<0){
+  		error("Error writing to socket");
+  	}
+
+  }
+
+}
+
 void *service_single_client(void *args){
 	struct clientArgs *wa;
 	int newsockfd;  
@@ -162,8 +228,7 @@ void *service_single_client(void *args){
 
   fprintf(stderr, "Socket %d connected\n", newsockfd);
 	
-	char buffer[BUFFER_SIZE];
-	bzero(buffer,256);
+	
 	int n;
 
 	//get client ip and port from scoket 
@@ -193,12 +258,16 @@ void *service_single_client(void *args){
 
 
 	while(1){
+	char buffer[BUFFER_SIZE];
+	bzero(buffer,BUFFER_SIZE);
+	int n;
   n = read(newsockfd,buffer,256);
   if(n<0){
     error("ERROR reading from socket");
   }
   char *garbage; 
   int choice;
+  cout<<"buffer received at server is:"<<buffer<<endl;
   sscanf(buffer,"%d %s",&choice,garbage);
 
   switch(choice){
@@ -212,7 +281,13 @@ void *service_single_client(void *args){
       signupuser(newsockfd,buffer);
       break;
     }
+		
+		case 31:
+		{
+			uploaduserfiles(newsockfd,buffer,ipstr);
+			break;
 		}
+	}  // switch close
 	}	//while close
 
 } //function close
@@ -277,16 +352,9 @@ int main(int argc, char *argv[]){
   					close(sockfd);
             pthread_exit(NULL);
         }
+	} // while ends
 
-  
 
-  
-}
   pthread_exit(NULL);
-
-  /*if(flag == 1){
-
-  } */
-
-  return 0;
+	return 0;
 }
