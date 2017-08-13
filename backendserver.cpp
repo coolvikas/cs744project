@@ -11,7 +11,11 @@
 #include <errno.h>
 #include <time.h>
 #include <unistd.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <string>
 
+using namespace std;
 const char *port = "23300";
 
 /* We will use this struct to pass parameters to one of the threads */
@@ -28,18 +32,6 @@ int main(int argc, char *argv[])
     /* The pthread_t type is a struct representing a single thread. */
     pthread_t server_thread;
 
-    /* If a client closes a connection, this will generally produce a SIGPIPE
-       signal that will kill the process. We want to ignore this signal, so
-       send() just returns -1 when this happens. */
-    /*sigset_t new;
-    sigemptyset (&new);
-    sigaddset(&new, SIGPIPE);
-    if (pthread_sigmask(SIG_BLOCK, &new, NULL) != 0) 
-    {
-        perror("Unable to mask SIGPIPE");
-        exit(-1);
-    }
-    */
     
     if (pthread_create(&server_thread, NULL, accept_clients, NULL) < 0)
     {
@@ -164,6 +156,78 @@ void *accept_clients(void *args)
    See oneshot-single.c and client.c for more documentation on how the socket
    code works.
  */
+void sendFile(char* dirName,char* fileName,int socket)
+{
+    string fileLocation = string(dirName) + "/" + string(fileName);
+
+    FILE *sendFile = NULL;
+
+    sendFile = fopen(fileLocation.c_str(),"r");
+
+    if(!sendFile)
+        fprintf(stderr, "Error fopen ----> %s", strerror(errno));
+
+    int sentData=0;
+                    //----buffer chunk to create the file in chunk.
+    char chunk[30];
+    memset(&chunk,0,sizeof(chunk));
+    int len;
+                     //-------reading the requested file in chunk.
+    while ((len=fread(chunk,1,sizeof chunk, sendFile)) > 0) 
+        {  
+            len=send(socket,chunk,len,0);
+                        
+            sentData+=len;
+
+        }
+    fclose(sendFile);
+    close(socket);
+    pthread_exit(NULL);
+
+}
+
+
+void receiveFile(char* dirName,char* fileName,int socket)
+{
+    struct stat st = {0};
+
+    if (stat(dirName, &st) == -1) 
+        mkdir(dirName, 0700);
+    
+    string fileLocation = string(dirName) + "/" + string(fileName);
+
+    FILE *receivedFile;
+    int remainData,fileSize;
+    ssize_t len;
+    receivedFile = fopen(fileLocation.c_str(),"w");
+
+     if (receivedFile == NULL)
+        {
+                fprintf(stderr, "Failed to open file--> %s\n", strerror(errno));
+
+                exit(EXIT_FAILURE);
+
+        }
+
+    char chunk[30];
+    memset(&chunk,'\0',sizeof chunk);
+   
+    //Receiving the file in chunks.
+
+    while ((len = recv(socket, chunk, sizeof(chunk), 0)) > 0)
+        {       
+                
+                //cout<<chunk<<" "<<len<<endl;
+                fwrite(chunk, 1,len, receivedFile);
+    
+        }
+        fclose(receivedFile);
+        
+       // printf("Receiving file %s status %s\n",fileName.c_str(),strerror(errno));
+       close(socket); 
+       pthread_exit(NULL);
+
+}
 void *service_single_client(void *args) {
     struct workerArgs *wa;
     int socket, nbytes;
@@ -183,23 +247,51 @@ void *service_single_client(void *args) {
 
     while(1)
     {
-        sprintf(tosend,"%d -- Hello, socket!\n", (int) time(NULL));
+        sprintf(tosend,"%d Upload OR Download\n", (int) time(NULL));
 
         nbytes = send(socket, tosend, strlen(tosend), 0);
 
-        if (nbytes == -1 && (errno == ECONNRESET || errno == EPIPE))
-        {
-            fprintf(stderr, "Socket %d disconnected\n", socket);
-            close(socket);
-            free(wa);
-            pthread_exit(NULL);
-        }
-        else if (nbytes == -1)
-        {
-            perror("Unexpected error in send()");
-            free(wa);
-            pthread_exit(NULL);
-        }
+        char buff[100];
+        memset(&buff,0,sizeof(buff));
+        
+        if ((nbytes = recv(socket, buff, sizeof buff, 0)) <= 0)
+            {
+                        
+            if (nbytes == 0) {
+                // connection closed
+                printf("connection %d closed\n", socket);
+                close(socket);
+                free(wa);
+                pthread_exit(NULL);
+
+                        }
+            else {
+                perror("recv");
+                 }
+            }
+       char *command = strtok (buff," ");
+       
+       char *dirName = strtok (NULL," ");
+
+       char *fileName = strtok (NULL," ");
+
+       if(!strcmp(command,"1"))
+        receiveFile(dirName,fileName,socket);
+
+       else if(!strcmp(command,"2"))
+        sendFile(dirName,fileName,socket);
+
+       else
+        fprintf(stderr, "server did not send proper command\n");
+
+        close(socket);
+        free(wa);
+        pthread_exit(NULL);
+
+
+
+
+
         sleep(5);
     }
 
