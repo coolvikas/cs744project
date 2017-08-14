@@ -1,17 +1,24 @@
-#include<stdio.h>
-#include<stdlib.h>
-#include<iostream>
-#include<sys/types.h>
-#include<sys/socket.h>
-#include<netinet/in.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <iostream>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
 #include <map>
 #include <iterator>
+<<<<<<< HEAD
 #include <fcntl.h> /* O_WRONLY, O_CREAT */
 #include <unistd.h> /* close, write, read */
 #include<string.h>
 #include<pthread.h>
 #include<unistd.h> //for read and write functions
 #include<arpa/inet.h> //for inet_ntop() function
+=======
+#include <string.h>
+#include <pthread.h>
+#include <unistd.h> //for read and write functions
+#include <arpa/inet.h> //for inet_ntop() function
+>>>>>>> 379cb877da2a0003a542e84b66baee43afd93c59
 #define BUFFER_SIZE 256
 using namespace std;
 
@@ -450,14 +457,7 @@ int main(int argc, char *argv[]){
   	wa = (clientArgs *)malloc(sizeof(struct clientArgs));
     wa->socket = newsockfd;
 
-  	/* We're now connected to a client. We're going to spawn a "worker thread" to handle
-           that connection. That way, the server thread can continue running, accept more connections,
-            and spawn more threads to handle them. 
-           The worker thread needs to know what socket it must use to communicate with the client,
-           so we'll pass the clientSocket as a parameter to the thread. Although we could arguably
-           just pass a pointer to clientSocket, it is good practice to use a struct that encapsulates
-           the parameters to the thread (even if there is only one parameter). In this case, this is
-           done with the workerArgs struct. */
+  
   	if (pthread_create(&client_thread, NULL, service_single_client, wa) != 0) 
         {
             perror("Could not create a worker thread");
