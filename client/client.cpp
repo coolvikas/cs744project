@@ -5,8 +5,11 @@
 #include<netinet/in.h>
 #include<netdb.h>
 #include<time.h> 
+#include <fcntl.h> /* O_WRONLY, O_CREAT */
+#include <unistd.h> /* close, write, read */
 #include<string.h>
 #include<iostream>
+#include<cmath>
 #include<stdlib.h> //for exit system call
 #include<unistd.h> //for read and write functions
 #define BUFFER_SIZE 256
@@ -47,16 +50,81 @@ char* signupuser(){
 
 }
 
+int send_file(int sock, char *file_name)
+{
+ int sent_count; /* how many sending chunks, for debugging */
+ ssize_t read_bytes, /* bytes read from local file */
+ sent_bytes, /* bytes sent to connected socket */
+ sent_file_size;
+ char send_buf[BUFFER_SIZE]; /* max chunk size for sending file */
+ char * errmsg_notfound = "File not found\n";
+ FILE *fptr;
+ fptr = fopen(file_name,"r");
+ fseek(fptr,0, SEEK_END);
+    unsigned long file_len =(unsigned long)ftell(fptr);
+    printf("length of file is%ld\n",file_len);
+  fseek(fptr,0,SEEK_SET);
+  fclose(fptr);
+ int f; /* file handle for reading local file*/
+ sent_count = 0;
+ sent_file_size = 0;
+ /* attempt to open requested file for reading */
+ if( (f = open(file_name, O_RDONLY)) < 0) /* can't open requested file */
+ {
+
+ error(file_name);
+ //if( (sent_bytes = send(sock, errmsg_notfound ,strlen(errmsg_notfound), 0)) < 0 ){
+ // perror("send error");
+ // return -1;
+ // }
+ }
+
+ else /* open file successful */
+ {
+  long partitions = floor(file_len/BUFFER_SIZE);
+  char buffer1[BUFFER_SIZE];
+  bzero(buffer1,BUFFER_SIZE);
+  sprintf(buffer1,"%ld",partitions);
+  int n = write(sock,buffer1,strlen(buffer1));
+  if(n<0){
+     error("ERROR writing to socket");
+  }
+  printf("Sending file: %s\n", file_name);
+ while( (read_bytes = read(f, send_buf, BUFFER_SIZE)) > 0 )
+ {
+ if( (sent_bytes = send(sock, send_buf, read_bytes,0))< read_bytes )
+ {
+ error("send error");
+ return -1;
+ }
+ sent_count++;
+ sent_file_size += sent_bytes;
+ }
+ close(f);
+ } /* end else */
+
+ printf("Done with this client. Sent %d bytes in %d send(s)\n\n",
+ sent_file_size, sent_count);
+//return sent_count;
+}
+
 //code to upload file to server for backup
 
-void upload(int sockfd){
+int upload(int sockfd){
   char  filename[50];
   cout<<"enter the filename to upload:";
   cin>>filename;
   char buffer[BUFFER_SIZE];
   bzero(buffer,BUFFER_SIZE);
-  int uploadfilenamecode = 31;  // 31 is the code for uploading file name to server and authenticating with session id before uplaoding.
+  int uploadfilenamecode = 3;  // 3 is the code for uploading file name to server and authenticating with session id before uplaoding.
   int n;
+  FILE *fptr;
+  fptr=fopen(filename,"r");
+  cout<<"fptr"<<fptr;
+  if(fptr==NULL){
+    error("NO such filename exists");
+    return 0;
+  }
   sprintf(buffer,"%d %d %s",uploadfilenamecode,sessionid,filename);
   printf("upload():Value before writing  buffer is:%s\n",buffer );
   n = write(sockfd,buffer,strlen(buffer));
@@ -73,12 +141,40 @@ void upload(int sockfd){
   sscanf(buffer,"%d",&sessionidresponse);
   if(sessionidresponse==1){
     cout<<"Session ID matched at server. Starting file upload to server."<<endl;
+    send_file(sockfd,filename);
 
     // function to upload file 
   }
   else{
     cout<<"Session ID match failed. Please login first.";
-    return;
+    return 0;
+  }
+
+
+}
+
+//to logout the client from server and removes its session also.
+void logout(int sockfd){
+  char buffer1[BUFFER_SIZE];
+  bzero(buffer1,BUFFER_SIZE);
+  int choice = 5;
+  sprintf(buffer1,"%d %d",choice,sessionid);
+  int n = write(sockfd,buffer1,strlen(buffer1));
+  if(n<0){
+      error("ERROR writing to socket");
+  }
+  bzero(buffer1,BUFFER_SIZE);
+  n = read(sockfd,buffer1,255);
+  if(n<0){
+      error("ERROR reading from socket");
+  }
+  int logout_response;
+  sscanf(buffer1,"%d %d",&logout_response,&sessionid);
+  if(logout_response==1){
+    cout<<"User successfully logged out from system."<<endl;
+  }
+  else{
+    cout<<"U are not logged in."<<endl;
   }
 
 
@@ -124,6 +220,7 @@ int main(int argc, char *argv[])
     printf("2.Signup\n" );
     printf("3.Upload Files\n");
     printf("4.Downlaod Files\n");
+    printf("5.Logout\n");
 
     scanf("%d",&choice );
     switch(choice)
@@ -150,15 +247,19 @@ int main(int argc, char *argv[])
             printf("Client is successfully authenticated at server end.\n");
             cout<<"Session ID is:"<<sessionid;
           }
-          else{
+          else if(status ==0){
             printf("Client cannot be authenticated at server end.\n" );
           
+          }
+          if(status == 2)
+          {
+            cout<<"client is already logged in with session id"<<sessionid<<" PLease do other operations.";
           }
           break;
 
 
-          case 2: //lets signup first
-          {
+        case 2: //lets signup first
+        {
             char *buffer1;
             buffer1 = signupuser();;
             printf("signupuser():Value before writing buffer is:%s\n",buffer1 );
@@ -178,12 +279,19 @@ int main(int argc, char *argv[])
               printf("Please try again signup with different username and password.\n" );
             }
             break;
-          }
-          case 3:
-          {
-            upload(sockfd);
+        }
+        case 3:
+        {
+            int x = upload(sockfd);
+            break;
 
-          }
+        }
+        case 5:
+        {
+            logout(sockfd);
+            break;
+
+        }
 
 
     }
