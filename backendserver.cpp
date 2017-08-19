@@ -209,7 +209,7 @@ void receiveFile(char* dirName,char* fileName,int socket)
 
         }
 
-    char chunk[30];
+    char chunk[512];
     memset(&chunk,'\0',sizeof chunk);
    
     //Receiving the file in chunks.

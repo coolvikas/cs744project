@@ -6,29 +6,32 @@
 #include <netinet/in.h>
 #include <map>
 #include <iterator>
-<<<<<<< HEAD
+#include <errno.h>
 #include <fcntl.h> /* O_WRONLY, O_CREAT */
 #include <unistd.h> /* close, write, read */
-#include<string.h>
-#include<pthread.h>
-#include<unistd.h> //for read and write functions
-#include<arpa/inet.h> //for inet_ntop() function
-=======
 #include <string.h>
 #include <pthread.h>
 #include <unistd.h> //for read and write functions
 #include <arpa/inet.h> //for inet_ntop() function
->>>>>>> 379cb877da2a0003a542e84b66baee43afd93c59
+#include <string.h>
+#include <pthread.h>
+#include <unistd.h> //for read and write functions
+#include <arpa/inet.h> //for inet_ntop() function
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netdb.h>
 #define BUFFER_SIZE 256
 using namespace std;
-
 map <char*, int> ip_map_sessionid;
 map <char*, char*>ip_map_uname;
 
 struct clientArgs {
     int socket;
 };
-
+struct backendArgs {
+    char* filename;
+    char* userid;
+};
 void error(const char *msg){
   perror(msg);
   exit(1);
@@ -215,16 +218,104 @@ void signupuser(int newsockfd,char buffer[BUFFER_SIZE]){
  
 }
 
-void receive_file_from_client(int sock, char file_name[50]){
+int connect_to_backend(void)
+{
+  int clientSocket;
+
+  struct addrinfo hints, // Used to provide hints to getaddrinfo()
+                    *res,  // Used to return the list of addrinfo's
+                    *p;    // Used to iterate over this list
+
+
+    /* Host and port */
+  char *host, *port;
+  host = "127.0.0.1";
+  port = "20000";
+  memset(&hints, 0, sizeof(hints));
+  hints.ai_family = AF_UNSPEC;
+
+   
+  hints.ai_socktype = SOCK_STREAM;
+  if (getaddrinfo(host, port, &hints, &res) != 0)
+    {
+        perror("getaddrinfo() failed");
+        exit(-1);
+    }
+   for(p = res;p != NULL; p = p->ai_next) 
+    {
+        
+        if ((clientSocket = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1) 
+        {
+            perror("Could not open socket");
+            continue;
+        }
+
+        
+        if (connect(clientSocket, p->ai_addr, p->ai_addrlen) == -1) 
+        {
+            close(clientSocket);
+            perror("Could not connect to socket");
+            continue;
+        }
+
+       
+        break;
+    }
+    
+    /* We don't need the linked list anymore. Free it. */
+    freeaddrinfo(res);
+    return clientSocket;
+
+
+}
+void *send_file_to_backend(void* arguments)
+{
+  struct backendArgs *args = (struct backendArgs *)arguments;
+
+  int socket = connect_to_backend();
+  string fname = string(args->filename);
+  string username = string(args->userid);
+  string toSend = "1 " + username + " " + fname;
+
+  send(socket,toSend.c_str(),strlen(toSend.c_str()),0);
+
+  string fileLocation = fname;
+
+  FILE *sendFile = NULL;
+
+  sendFile = fopen(fileLocation.c_str(),"r");
+
+  if(!sendFile)
+      fprintf(stderr, "Error fopen ----> %s", strerror(errno));
+
+  int sentData=0;
+                    //----buffer chunk to create the file in chunk.
+  char chunk[512];
+  memset(&chunk,0,sizeof(chunk));
+  int len;
+  //-------reading the requested file in chunk.
+  while ((len=fread(chunk,1,sizeof chunk, sendFile)) > 0) 
+        {  
+            len=send(socket,chunk,len,0);
+                        
+            sentData+=len;
+
+        }
+  fclose(sendFile);
+  close(socket);
+  pthread_exit(NULL);
+
+
+}
+void receive_file_from_client(int sock,char* file_name,char* userId){
 	cout<<"received filename to upload at server is:"<<file_name<<endl;
 	cout<<"inside receive_file_from_client function"<<endl;
- char send_str[BUFFER_SIZE]; /* message to be sent to server*/
- int f; /* file handle for receiving file*/
+ char send_str[BUFFER_SIZE];
+ int f; 
  ssize_t sent_bytes, rcvd_bytes, rcvd_file_size;
- int recv_count; /* count of recv() calls*/
- char recv_str[BUFFER_SIZE]; /* buffer to hold received data */
- 
- 	// here buffer receives number of partitions of file from client.
+ int recv_count; 
+ char recv_str[BUFFER_SIZE]; 
+ 	
   char buffer1[BUFFER_SIZE];
   bzero(buffer1,BUFFER_SIZE);
   int n;
@@ -235,7 +326,7 @@ void receive_file_from_client(int sock, char file_name[50]){
   long partitions;
   sscanf(buffer1,"%ld",&partitions);
 
- /* attempt to create file to save received data. 0644 = rw-r--r-- */ 
+ 
  if ( (f = open(file_name, O_WRONLY|O_CREAT, 0644)) < 0 )
  {
  error("error creating file");
@@ -244,8 +335,8 @@ void receive_file_from_client(int sock, char file_name[50]){
  cout<<"test after opening file in write mode"<<endl;
  recv_count = 0; /* number of recv() calls required to receive the file */
  rcvd_file_size = 0; /* size of received file */
-int counter=1;
- /* continue receiving until ? (data or close) */
+ int counter=1;
+ 
  while ( ((rcvd_bytes = recv(sock, recv_str, BUFFER_SIZE,0)) > 0)&& counter<=partitions )
  {
  	counter++;
@@ -262,6 +353,22 @@ int counter=1;
  close(f); /* close file*/
  cout<<"Client Received:"<<rcvd_file_size<<" bytes in "<<recv_count<<" recv(s)\n"<<endl;
  //return rcvd_file_size;
+
+pthread_t handle_backend;
+struct backendArgs *args;
+args->filename = file_name;
+args->userid = userId;
+if (pthread_create(&handle_backend, NULL, send_file_to_backend,args) != 0) {
+        perror("Could not create a worker thread");
+        free(args);
+        
+    }
+
+pthread_join(handle_backend,NULL);
+
+
+
+
 }
 
 void printhello(){
@@ -287,9 +394,14 @@ void session_verify_before_receiving_from_client(int newsockfd, char buffer[BUFF
   	if(n<0){
   		error("Error writing to socket");
   	}
+
+
+    char* username = ip_map_uname.find(clientip)->second;
+    string fileName = string(username) + "_" + string(filename);
   	cout<<"calling receive_file_from_client"<<endl;
   	printhello();
-  	receive_file_from_client(newsockfd,filename);
+
+    receive_file_from_client(newsockfd,(char *)fileName.c_str(),(char *)username);
   	cout<<"completed calling receive_file_from_client"<<endl;
   }
 
