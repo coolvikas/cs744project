@@ -58,13 +58,7 @@ int send_file(int sock, char *file_name)
  sent_file_size;
  char send_buf[BUFFER_SIZE]; /* max chunk size for sending file */
  const char * errmsg_notfound = "File not found\n";
- FILE *fptr;
- fptr = fopen(file_name,"r");
- fseek(fptr,0, SEEK_END);
-    unsigned long file_len =(unsigned long)ftell(fptr);
-    printf("length of file is%ld\n",file_len);
-  fseek(fptr,0,SEEK_SET);
-  fclose(fptr);
+
  int f; /* file handle for reading local file*/
  sent_count = 0;
  sent_file_size = 0;
@@ -81,6 +75,8 @@ int send_file(int sock, char *file_name)
 
  else /* open file successful */
  {
+  /*
+
   long partitions = ceil(file_len/float(BUFFER_SIZE));
   cout<<"partitions calculated:"<<partitions<<endl ;
   char buffer1[BUFFER_SIZE];
@@ -93,9 +89,10 @@ int send_file(int sock, char *file_name)
   if(n<0){
      error("ERROR writing to socket");
   } 
-  bzero(buffer1,BUFFER_SIZE);
-  n = read(sock,buffer1,strlen(buffer1));
-  cout<<"server reply after sending partitions is:"<<buffer1;
+  char replybuffer[BUFFER_SIZE];
+  bzero(replybuffer,BUFFER_SIZE);
+  n = read(sock,replybuffer,sizeof(replybuffer));
+  cout<<"server reply after sending partitions is:"<<replybuffer<<endl;   */
   
   printf("Sending file: %s\n", file_name);
   //sleep(2);
@@ -111,7 +108,10 @@ int send_file(int sock, char *file_name)
  }
  close(f);
  } /* end else */
-
+ char response[20];
+ bzero(response,20);
+ int n = read(sock,response,20);
+ cout<<"response from server after sending all chunks at client end is "<<response<<endl;
  printf("Done with this client. Sent %d bytes in %d send(s)\n\n",sent_file_size, sent_count);
 //return sent_count;
 }
@@ -133,7 +133,17 @@ int upload(int sockfd){
     error("NO such filename exists");
     return 0;
   }
-  sprintf(buffer,"%d %d %s",uploadfilenamecode,sessionid,filename);
+  fclose(fptr);
+   FILE *fptr1;
+  fptr1 = fopen(filename,"r");
+  fseek(fptr,0, SEEK_END);
+    unsigned long file_len =(unsigned long)ftell(fptr1);
+    printf("length of file is%ld\n",file_len);
+  fseek(fptr1,0,SEEK_SET);
+  fclose(fptr1);
+
+
+  sprintf(buffer,"%d %d %s %ld",uploadfilenamecode,sessionid,filename,file_len);
   printf("upload():Value before writing  buffer is:%s\n",buffer );
   n = write(sockfd,buffer,strlen(buffer));
   if(n<0){

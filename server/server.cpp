@@ -312,39 +312,14 @@ void *send_file_to_backend(void* arguments)
 
 
 }
-void receive_file_from_client(int sock,char file_name[50],string userId){
+void receive_file_from_client(int sock,char file_name[50],string userId,long int filesize){
 	cout<<"received filename to upload at server is:"<<file_name<<endl;
 	cout<<"inside receive_file_from_client function"<<endl;
- char send_str[BUFFER_SIZE];
+// char send_str[BUFFER_SIZE];
  int f; 
  ssize_t sent_bytes, rcvd_bytes, rcvd_file_size;
  int recv_count; 
  char recv_str[BUFFER_SIZE]; 
- 	
-  char buffer1[BUFFER_SIZE];
-  bzero(buffer1,BUFFER_SIZE);
-  int n;
-  n = read(sock,buffer1,BUFFER_SIZE);
-  if(n<0){
-      error("ERROR reading from socket");
-  }
-  cout<<"partition buffer is:"<<buffer1<<endl;
-  long partitions=0;
-  sscanf(buffer1,"%ld",&partitions);
-  bzero(send_str,BUFFER_SIZE);
-  char reply[20]="received";
-  sprintf(buffer1,"%s",reply);
-  n = write(sock,send_str,strlen(send_str));
-  if(n<0){
-      error("ERROR writing to socket");
-  }
-  //int eof ;
-  //char restbuffer[BUFFER_SIZE];
-  //bzero(restbuffer,BUFFER_SIZE);
-  //sscanf(buffer1,"%ld %d %s",&partitions,&eof,restbuffer);
-  //cout<<"eof="<<eof<<endl;
-  
-
   recv_count = 0; /* number of recv() calls required to receive the file */
   rcvd_file_size = 0; /* size of received file */
   int counter=0;
@@ -354,30 +329,11 @@ void receive_file_from_client(int sock,char file_name[50],string userId){
  error("error creating file");
  //return -1;
  }
- //cout<<"strlen(restbuffer)="<<strlen(restbuffer)<<endl;
- //cout<<"restbuffer= "<<restbuffer<<endl;
-/* if(strlen(restbuffer)>0){
- 	recv_count++;
- 	rcvd_file_size+=strlen(restbuffer);
- 	if (write(f, restbuffer, strlen(restbuffer)) < 0 )
- 	{
- 	error("error writing to file");
- 	//return -1;
- 	}  
-  	partitions = partitions - 1;
-  }
-*/
- 
  
  cout<<"test after opening file in write mode"<<endl;
+ while ((rcvd_bytes = recv(sock, recv_str, BUFFER_SIZE,0)) > 0){
  
- cout<<"partitions before while loop:"<<partitions<<endl;
- while ( (counter<partitions)&&((rcvd_bytes = recv(sock, recv_str, BUFFER_SIZE,0)) > 0) ){
- //while ((rcvd_bytes = recv(sock, recv_str, BUFFER_SIZE,0)) > 0)
- //cout<<"inside while"<<endl;
  counter++;
- //cout<<"counter:"<<counter<<endl;
- 	//cout<<"inside while loop"<<counter<<endl;
  recv_count++;
  rcvd_file_size += rcvd_bytes;
 
@@ -386,14 +342,18 @@ void receive_file_from_client(int sock,char file_name[50],string userId){
  error("error writing to file");
  //return -1;
  }  
- //cout<<"written to file again checking while condtn"<<endl;
+ if(rcvd_file_size==filesize){
+ 	int n = write(sock,"ack",3);
+ 	if (n < 0) error("ERROR writing to socket");
+ 	break;
+ }
+ 
  }
  close(f); /* close file*/
- cout<<"partitions after while loop :"<<partitions<<endl;
+
 
  cout<<"Client Received:"<<rcvd_file_size<<" bytes in "<<recv_count<<" recv(s)\n"<<endl;
- //return rcvd_file_size;
-/*cout<<"hello"<<endl;
+cout<<"hello"<<endl;
 pthread_t handle_backend;
 cout<<"hello"<<endl;
 struct backendArgs *args;
@@ -422,7 +382,7 @@ if (pthread_create(&handle_backend, NULL, send_file_to_backend,args) != 0) {
         
     }
 cout<<"hello"<<endl;
-pthread_join(handle_backend,NULL);   */
+pthread_join(handle_backend,NULL);   
 
  cout<<"going back from receive_file_from_client"<<endl;
 
@@ -435,8 +395,10 @@ void session_verify_before_receiving_from_client(int newsockfd, char buffer[BUFF
 	int n;
 	int initial;
 	int sid;
-  sscanf(buffer,"%d %d %s",&initial,&sid,filename);
-  cout<<"received filename to upload at server is:"<<filename;
+	long int filesize;
+  sscanf(buffer,"%d %d %s %ld",&initial,&sid,filename,&filesize);
+  cout<<"received filename to upload at server is:"<<filename<<endl;
+  cout<<"filesize is: "<<filesize<<endl;
   int sessionactiveflag=checksessionactive(clientip,sid);
   bzero(buffer,BUFFER_SIZE);
 
@@ -479,7 +441,7 @@ void session_verify_before_receiving_from_client(int newsockfd, char buffer[BUFF
   	cout<<"calling receive_file_from_client"<<endl;
 
 
-    receive_file_from_client(newsockfd,(char *)fileName.c_str(),username);
+    receive_file_from_client(newsockfd,(char *)fileName.c_str(),username,filesize);
   	cout<<"completed calling receive_file_from_client"<<endl;
   }
 
