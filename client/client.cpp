@@ -53,11 +53,11 @@ char* signupuser(){
 int send_file(int sock, char *file_name)
 {
  int sent_count; /* how many sending chunks, for debugging */
- ssize_t read_bytes, /* bytes read from local file */
+ int read_bytes, /* bytes read from local file */
  sent_bytes, /* bytes sent to connected socket */
  sent_file_size;
  char send_buf[BUFFER_SIZE]; /* max chunk size for sending file */
- char * errmsg_notfound = "File not found\n";
+ const char * errmsg_notfound = "File not found\n";
  FILE *fptr;
  fptr = fopen(file_name,"r");
  fseek(fptr,0, SEEK_END);
@@ -82,14 +82,21 @@ int send_file(int sock, char *file_name)
  else /* open file successful */
  {
   long partitions = ceil(file_len/float(BUFFER_SIZE));
+  cout<<"partitions calculated:"<<partitions<<endl ;
   char buffer1[BUFFER_SIZE];
+  //int eof = EOF;
+  //cout<<"eof= "<<eof<<endl;
   bzero(buffer1,BUFFER_SIZE);
   sprintf(buffer1,"%ld",partitions);
+  cout<<"writing partitions to sever socket"<<endl;
   int n = write(sock,buffer1,strlen(buffer1));
   if(n<0){
      error("ERROR writing to socket");
   } 
-  cout<<"partitions:"<<partitions<<endl ;
+  bzero(buffer1,BUFFER_SIZE);
+  n = read(sock,buffer1,strlen(buffer1));
+  cout<<"server reply after sending partitions is:"<<buffer1;
+  
   printf("Sending file: %s\n", file_name);
   //sleep(2);
  while( (read_bytes = read(f, send_buf, BUFFER_SIZE)) > 0 )

@@ -29,7 +29,7 @@ struct clientArgs {
     int socket;
 };
 struct backendArgs {
-    char *filename;
+    char filename[50];
     string userid;
 };
 void error(const char *msg){
@@ -229,7 +229,7 @@ int connect_to_backend(void)
 
 
     /* Host and port */
-  char *host, *port;
+  const char *host, *port;
   host = "127.0.0.1";
   port = "23300";
   memset(&hints, 0, sizeof(hints));
@@ -328,21 +328,50 @@ void receive_file_from_client(int sock,char file_name[50],string userId){
   if(n<0){
       error("ERROR reading from socket");
   }
+  cout<<"partition buffer is:"<<buffer1<<endl;
   long partitions=0;
   sscanf(buffer1,"%ld",&partitions);
+  bzero(send_str,BUFFER_SIZE);
+  char reply[20]="received";
+  sprintf(buffer1,"%s",reply);
+  n = write(sock,send_str,strlen(send_str));
+  if(n<0){
+      error("ERROR writing to socket");
+  }
+  //int eof ;
+  //char restbuffer[BUFFER_SIZE];
+  //bzero(restbuffer,BUFFER_SIZE);
+  //sscanf(buffer1,"%ld %d %s",&partitions,&eof,restbuffer);
+  //cout<<"eof="<<eof<<endl;
+  
 
-  cout<<"partition buffer is:"<<buffer1<<endl;
+  recv_count = 0; /* number of recv() calls required to receive the file */
+  rcvd_file_size = 0; /* size of received file */
+  int counter=0;
  
- if ( (f = open(file_name, O_WRONLY|O_CREAT, 0644)) < 0 )
+  if ( (f = open(file_name, O_WRONLY|O_CREAT, 0644)) < 0 )
  {
  error("error creating file");
  //return -1;
  }
+ //cout<<"strlen(restbuffer)="<<strlen(restbuffer)<<endl;
+ //cout<<"restbuffer= "<<restbuffer<<endl;
+/* if(strlen(restbuffer)>0){
+ 	recv_count++;
+ 	rcvd_file_size+=strlen(restbuffer);
+ 	if (write(f, restbuffer, strlen(restbuffer)) < 0 )
+ 	{
+ 	error("error writing to file");
+ 	//return -1;
+ 	}  
+  	partitions = partitions - 1;
+  }
+*/
+ 
+ 
  cout<<"test after opening file in write mode"<<endl;
- recv_count = 0; /* number of recv() calls required to receive the file */
- rcvd_file_size = 0; /* size of received file */
- int counter=0;
- cout<<"partitions before wile loop:"<<partitions<<endl;
+ 
+ cout<<"partitions before while loop:"<<partitions<<endl;
  while ( (counter<partitions)&&((rcvd_bytes = recv(sock, recv_str, BUFFER_SIZE,0)) > 0) ){
  //while ((rcvd_bytes = recv(sock, recv_str, BUFFER_SIZE,0)) > 0)
  //cout<<"inside while"<<endl;
@@ -364,25 +393,36 @@ void receive_file_from_client(int sock,char file_name[50],string userId){
 
  cout<<"Client Received:"<<rcvd_file_size<<" bytes in "<<recv_count<<" recv(s)\n"<<endl;
  //return rcvd_file_size;
-cout<<"hello"<<endl;
+/*cout<<"hello"<<endl;
 pthread_t handle_backend;
 cout<<"hello"<<endl;
 struct backendArgs *args;
 args = (backendArgs *)malloc(sizeof(struct backendArgs));
 cout<<"hello"<<endl;
-args->userid = userId;
-cout<<"args->userid = "<<args->userid;
-args->filename = file_name;
-//cout<<"args->filename"<<args->filename<<endl;
+cout<<"args->filename= before = "<<args->filename<<endl;
 
-cout<<"inserted args in new thread"<<endl;
+cout<<"args->userid = before = "<<args->userid<<endl;
+
+
+
+args->userid = userId;
+//args->userid = "userId";
+cout<<"args->userid = "<<args->userid<<endl;
+cout<<"strlen(file_name)= "<<strlen(file_name)<<endl;
+cout<<"sizeof(file_name)= "<<sizeof(file_name)<<endl;
+//strncpy(args->filename,file_name,strlen(file_name));
+memcpy(args->filename,file_name,sizeof(args->filename));
+//args->filename = "file_name";
+cout<<"args->filename="<<args->filename<<endl;
+
+cout<<"inserted args in new thread"<<endl;  
 if (pthread_create(&handle_backend, NULL, send_file_to_backend,args) != 0) {
         error("Could not create a worker thread");
         free(args);
         
     }
 cout<<"hello"<<endl;
-pthread_join(handle_backend,NULL); 
+pthread_join(handle_backend,NULL);   */
 
  cout<<"going back from receive_file_from_client"<<endl;
 
@@ -607,7 +647,7 @@ int main(int argc, char *argv[]){
   	struct clientArgs *wa;
   	wa = (clientArgs *)malloc(sizeof(struct clientArgs));
     wa->socket = newsockfd;
-    cout<<"wa->socket"<<wa->socket<<endl;
+    cout<<"wa->socket  "<<wa->socket<<endl;
 
   
   	if (pthread_create(&client_thread, NULL, service_single_client, wa) != 0) 
