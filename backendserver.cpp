@@ -14,7 +14,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <string>
-
+#include <iostream>
 using namespace std;
 const char *port = "23300";
 
@@ -193,7 +193,7 @@ void receiveFile(char* dirName,char* fileName,int socket)
 
     if (stat(dirName, &st) == -1) 
         mkdir(dirName, 0700);
-    
+    cout << dirName << endl;
     string fileLocation = string(dirName) + "/" + string(fileName);
 
     FILE *receivedFile;
@@ -269,6 +269,7 @@ void *service_single_client(void *args) {
                 perror("recv");
                  }
             }
+        cout << buff <<endl;
        char *command = strtok (buff," ");
        
        char *dirName = strtok (NULL," ");

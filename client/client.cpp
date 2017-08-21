@@ -81,15 +81,17 @@ int send_file(int sock, char *file_name)
 
  else /* open file successful */
  {
-  long partitions = floor(file_len/BUFFER_SIZE);
+  long partitions = ceil(file_len/float(BUFFER_SIZE));
   char buffer1[BUFFER_SIZE];
   bzero(buffer1,BUFFER_SIZE);
   sprintf(buffer1,"%ld",partitions);
   int n = write(sock,buffer1,strlen(buffer1));
   if(n<0){
      error("ERROR writing to socket");
-  }
+  } 
+  cout<<"partitions:"<<partitions<<endl ;
   printf("Sending file: %s\n", file_name);
+  //sleep(2);
  while( (read_bytes = read(f, send_buf, BUFFER_SIZE)) > 0 )
  {
  if( (sent_bytes = send(sock, send_buf, read_bytes,0))< read_bytes )
@@ -103,8 +105,7 @@ int send_file(int sock, char *file_name)
  close(f);
  } /* end else */
 
- printf("Done with this client. Sent %d bytes in %d send(s)\n\n",
- sent_file_size, sent_count);
+ printf("Done with this client. Sent %d bytes in %d send(s)\n\n",sent_file_size, sent_count);
 //return sent_count;
 }
 
