@@ -20,18 +20,17 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
-#define pt(a) (cout << "Test case:" << a << endl)
 #define BUFFER_SIZE 256
 using namespace std;
 map <char*, int> ip_map_sessionid;
-map <char*, string>ip_map_uname;
+map <char*, char*>ip_map_uname;
 
 struct clientArgs {
     int socket;
 };
 struct backendArgs {
-    char filename[50];
-    string userid;
+    char* filename;
+    char* userid;
 };
 void error(const char *msg){
   perror(msg);
@@ -40,13 +39,12 @@ void error(const char *msg){
 
 int generatesessionid(char clientip[50],char uname[50]){
 	srand (time(NULL)); // generate a seed using the current time
-	char *username = (char *)malloc(sizeof(char)*50);
-  username = uname; 
+	
 	int sessionid = rand(); // generate a random session ID
 	cout<<"generated a new session id for client"<<sessionid<<endl;
 	ip_map_sessionid.insert(pair <char *, int> (clientip, sessionid)); //insert client ip and sessionid into global map
 	// printing map ip_map_sessionid
-	ip_map_uname.insert(pair<char*, string> (clientip,username));
+	ip_map_uname.insert(pair<char*, char*> (clientip,uname));
   map <char *, int> :: iterator itr;
   cout << "\nThe map ip_map_sessionid is : \n";
   cout << "\tKEY\tELEMENT\n";
@@ -56,7 +54,7 @@ int generatesessionid(char clientip[50],char uname[50]){
               <<  '\t' << itr->second << '\n';
   }
   cout<<endl;
-  map <char *, string > :: iterator itr1;
+  map <char *, char* > :: iterator itr1;
   cout << "\nThe map ip_map_uname is : \n";
   cout << "\tKEY\tELEMENT\n";
   for (itr1 = ip_map_uname.begin(); itr1 != ip_map_uname.end(); ++itr1)
@@ -113,8 +111,8 @@ void verifyuserlogin(int newsockfd,char buffer[BUFFER_SIZE],char clientip[50]){
   }
   if(flag ==1 ){
 
-  		cout<<"Generating a session id"<<endl;
-  		int sessionid = generatesessionid(clientip,uname);
+  			cout<<"Generating a session id"<<endl;
+  			int sessionid = generatesessionid(clientip,uname);
         bzero(buffer,0);
         sprintf(buffer,"%d %d",flag,sessionid);
         n = write(newsockfd,buffer,strlen(buffer));
@@ -171,8 +169,7 @@ int checkcredentials(char uname[20],char passwd[20]){
 
 void signupuser(int newsockfd,char buffer[BUFFER_SIZE]){
 	
-  pt(2);
-  char uname[20],passwd[20];
+	char uname[20],passwd[20];
   int initial,n;
   sscanf(buffer,"%d %s %s",&initial,uname,passwd);
   printf("Received username passwd from client is:\n" );
@@ -231,9 +228,9 @@ int connect_to_backend(void)
 
 
     /* Host and port */
-  const char *host, *port;
+  char *host, *port;
   host = "127.0.0.1";
-  port = "23300";
+  port = "20000";
   memset(&hints, 0, sizeof(hints));
   hints.ai_family = AF_UNSPEC;
 
@@ -273,31 +270,16 @@ int connect_to_backend(void)
 }
 void *send_file_to_backend(void* arguments)
 {
-
-  cout<<"inside send_file_to_backend"<<endl;
   struct backendArgs *args = (struct backendArgs *)arguments;
 
-  cout <<args->userid << args->filename <<endl;
-  
   int socket = connect_to_backend();
   string fname = string(args->filename);
   string username = string(args->userid);
   string toSend = "1 " + username + " " + fname;
-  cout << "toSend:" << toSend.c_str() << endl;
+  cout << "toSend:" << toSend << endl;
   send(socket,toSend.c_str(),strlen(toSend.c_str()),0);
-  char feedback_from_backend[10]; 
-  memset(&feedback_from_backend,0,sizeof(feedback_from_backend));
-  int nbytes = recv(socket,feedback_from_backend,sizeof feedback_from_backend,0);
-  cout << "feedback char " << feedback_from_backend << endl;
-  int received_feedback=0;
-  if(nbytes <= 0)
-    cout << "server did not receive feedback from backend\n";
-  else
-    received_feedback = atoi(feedback_from_backend);
-  cout << "feedback int" << received_feedback << endl;
-  if(received_feedback)
-  {
-    string fileLocation = fname;
+
+  string fileLocation = fname;
 
   FILE *sendFile = NULL;
 
@@ -322,34 +304,43 @@ void *send_file_to_backend(void* arguments)
   fclose(sendFile);
   close(socket);
   pthread_exit(NULL);
-  }
-  
-  
 
 
 }
-void receive_file_from_client(int sock,char file_name[50],string userId,long int filesize){
+void receive_file_from_client(int sock,char* file_name,char* userId){
 	cout<<"received filename to upload at server is:"<<file_name<<endl;
 	cout<<"inside receive_file_from_client function"<<endl;
-// char send_str[BUFFER_SIZE];
+ char send_str[BUFFER_SIZE];
  int f; 
  ssize_t sent_bytes, rcvd_bytes, rcvd_file_size;
  int recv_count; 
  char recv_str[BUFFER_SIZE]; 
-  recv_count = 0; /* number of recv() calls required to receive the file */
-  rcvd_file_size = 0; /* size of received file */
-  int counter=0;
+ 	
+  char buffer1[BUFFER_SIZE];
+  bzero(buffer1,BUFFER_SIZE);
+  int n;
+  n = read(sock,buffer1,BUFFER_SIZE);
+  if(n<0){
+      error("ERROR reading from socket");
+  }
+  long partitions;
+  sscanf(buffer1,"%ld",&partitions);
+
  
-  if ( (f = open(file_name, O_WRONLY|O_CREAT, 0644)) < 0 )
+ if ( (f = open(file_name, O_WRONLY|O_CREAT, 0644)) < 0 )
  {
  error("error creating file");
  //return -1;
  }
- 
  cout<<"test after opening file in write mode"<<endl;
- while ((rcvd_bytes = recv(sock, recv_str, BUFFER_SIZE,0)) > 0){
+ recv_count = 0; /* number of recv() calls required to receive the file */
+ rcvd_file_size = 0; /* size of received file */
+ int counter=1;
  
- counter++;
+ while ( ((rcvd_bytes = recv(sock, recv_str, BUFFER_SIZE,0)) > 0)&& counter<=partitions )
+ {
+ 	counter++;
+ 	//cout<<"inside while loop"<<counter<<endl;
  recv_count++;
  rcvd_file_size += rcvd_bytes;
 
@@ -357,53 +348,32 @@ void receive_file_from_client(int sock,char file_name[50],string userId,long int
  {
  error("error writing to file");
  //return -1;
- }  
- if(rcvd_file_size==filesize){
- 	int n = write(sock,"ack",3);
- 	if (n < 0) error("ERROR writing to socket");
- 	break;
  }
- 
  }
  close(f); /* close file*/
-
-
  cout<<"Client Received:"<<rcvd_file_size<<" bytes in "<<recv_count<<" recv(s)\n"<<endl;
-cout<<"hello"<<endl;
+ //return rcvd_file_size;
+
 pthread_t handle_backend;
-cout<<"hello"<<endl;
 struct backendArgs *args;
-args = (backendArgs *)malloc(sizeof(struct backendArgs));
-cout<<"hello"<<endl;
-cout<<"args->filename= before = "<<args->filename<<endl;
-
-cout<<"args->userid = before = "<<args->userid<<endl;
-
-
-
+args->filename = file_name;
 args->userid = userId;
-//args->userid = "userId";
-cout<<"args->userid = "<<args->userid<<endl;
-cout<<"strlen(file_name)= "<<strlen(file_name)<<endl;
-cout<<"sizeof(file_name)= "<<sizeof(file_name)<<endl;
-//strncpy(args->filename,file_name,strlen(file_name));
-memcpy(args->filename,file_name,sizeof(args->filename));
-//args->filename = "file_name";
-cout<<"args->filename="<<args->filename<<endl;
-
-cout<<"inserted args in new thread"<<endl;  
 if (pthread_create(&handle_backend, NULL, send_file_to_backend,args) != 0) {
-        error("Could not create a worker thread");
+        perror("Could not create a worker thread");
         free(args);
         
     }
-cout<<"hello"<<endl;
-pthread_join(handle_backend,NULL);   
 
- cout<<"going back from receive_file_from_client"<<endl;
+pthread_join(handle_backend,NULL);
+
+
+
 
 }
 
+void printhello(){
+	cout<<"inside hello function";
+}
 
 void session_verify_before_receiving_from_client(int newsockfd, char buffer[BUFFER_SIZE],char clientip[50]){
 	cout<<"inside uploaduserfiles()"<<endl;
@@ -411,10 +381,8 @@ void session_verify_before_receiving_from_client(int newsockfd, char buffer[BUFF
 	int n;
 	int initial;
 	int sid;
-	long int filesize;
-  sscanf(buffer,"%d %d %s %ld",&initial,&sid,filename,&filesize);
-  cout<<"received filename to upload at server is:"<<filename<<endl;
-  cout<<"filesize is: "<<filesize<<endl;
+  sscanf(buffer,"%d %d %s",&initial,&sid,filename);
+  cout<<"received filename to upload at server is:"<<filename;
   int sessionactiveflag=checksessionactive(clientip,sid);
   bzero(buffer,BUFFER_SIZE);
 
@@ -427,37 +395,13 @@ void session_verify_before_receiving_from_client(int newsockfd, char buffer[BUFF
   		error("Error writing to socket");
   	}
 
-    cout<<"after for loop"<<endl;
-    map <char *, int> :: iterator itr;
-  cout << "\nThe map ip_map_sessionid is : \n";
-  cout << "\tKEY\tELEMENT\n";
-  for (itr = ip_map_sessionid.begin(); itr != ip_map_sessionid.end(); ++itr)
-  {
-        cout  <<  '\t' << itr->first 
-              <<  '\t' << itr->second << '\n';
-  }
-  cout<<endl;
-    map <char *, string > :: iterator itr1;
-  cout << "\nThe map ip_map_uname is : \n";
-  cout << "\tKEY\tELEMENT\n";
-    for (itr1 = ip_map_uname.begin(); itr1 != ip_map_uname.end(); ++itr1)
-    {
-        cout  <<  '\t' << itr1->first 
-              <<  '\t' << itr1->second << '\n';
-    }
 
-    cout << endl;
-
-    cout<<"ip_map_sessionid"<<ip_map_sessionid[clientip]<<endl;
-
-    cout<<"ip_map_uname[clientip]"<<ip_map_uname[clientip]<<endl;
-    string username = ip_map_uname[clientip];
-    cout << "receive_file_from_client():"<< username << endl;
+    char* username = ip_map_uname.find(clientip)->second;
     string fileName = string(username) + "_" + string(filename);
   	cout<<"calling receive_file_from_client"<<endl;
+  	printhello();
 
-
-    receive_file_from_client(newsockfd,(char *)fileName.c_str(),username,filesize);
+    receive_file_from_client(newsockfd,(char *)fileName.c_str(),(char *)username);
   	cout<<"completed calling receive_file_from_client"<<endl;
   }
 
@@ -549,21 +493,19 @@ void *service_single_client(void *args){
   if(n<0){
     error("ERROR reading from socket");
   }
-  char *garbage=NULL; 
+  char *garbage; 
   int choice;
   cout<<"buffer received at server is:"<<buffer<<endl;
   sscanf(buffer,"%d %s",&choice,garbage);
-  cout << choice << endl;
+
   switch(choice){
     case 1:
     {
-
       verifyuserlogin(newsockfd,buffer,ipstr);
       break;
     }
 		case 2:
     {
-      pt(1);
       signupuser(newsockfd,buffer);
       break;
     }
@@ -626,7 +568,6 @@ int main(int argc, char *argv[]){
   	struct clientArgs *wa;
   	wa = (clientArgs *)malloc(sizeof(struct clientArgs));
     wa->socket = newsockfd;
-    cout<<"wa->socket  "<<wa->socket<<endl;
 
   
   	if (pthread_create(&client_thread, NULL, service_single_client, wa) != 0) 
@@ -634,12 +575,12 @@ int main(int argc, char *argv[]){
             perror("Could not create a worker thread");
             free(wa);
             close(newsockfd);
-  			//close(sockfd);
+  					close(sockfd);
             pthread_exit(NULL);
         }
 	} // while ends
 
-	close(sockfd);
+
   pthread_exit(NULL);
 	return 0;
 }

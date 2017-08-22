@@ -15,6 +15,8 @@
 #include <unistd.h>
 #include <string>
 #include <iostream>
+
+#define BUFF_SIZE 256
 using namespace std;
 const char *port = "23300";
 
@@ -232,7 +234,7 @@ void *service_single_client(void *args) {
     struct workerArgs *wa;
     int socket, nbytes;
     char tosend[100];
-
+    char feedback[10];
     /* Unpack the arguments */
     wa = (struct workerArgs*) args;
     socket = wa->socket;
@@ -251,7 +253,7 @@ void *service_single_client(void *args) {
 
         nbytes = send(socket, tosend, strlen(tosend), 0);
 
-        char buff[100];
+        char buff[BUFF_SIZE];
         memset(&buff,0,sizeof(buff));
         
         if ((nbytes = recv(socket, buff, sizeof buff, 0)) <= 0)
@@ -269,7 +271,15 @@ void *service_single_client(void *args) {
                 perror("recv");
                  }
             }
-        cout << buff <<endl;
+        else
+
+         {  int flag=1;
+            sprintf(feedback,"%d", flag);
+            nbytes = send(socket,feedback,strlen(feedback),0);
+            if (nbytes != -1)
+                cout << "sent feedback " << feedback << endl;
+         }
+        cout << "buff:" << buff <<endl;
        char *command = strtok (buff," ");
        
        char *dirName = strtok (NULL," ");
@@ -287,13 +297,11 @@ void *service_single_client(void *args) {
 
         close(socket);
         free(wa);
-        pthread_exit(NULL);
+        
 
 
 
 
-
-        sleep(5);
     }
 
     pthread_exit(NULL);
