@@ -205,7 +205,6 @@ void receiveFile(char* dirName,char* fileName,int socket,long filesize)
     string fileLocation = string(dirName) + "/" + string(fileName);
 
     FILE *receivedFile;
-    int remainData,fileSize;
     ssize_t len,writtentofile;
     long rcvd_file_size=0;
     receivedFile = fopen(fileLocation.c_str(),"w");
@@ -228,8 +227,10 @@ void receiveFile(char* dirName,char* fileName,int socket,long filesize)
         {       //cout<<"len="<<len;
                 rcvd_file_size+=len;
                 //cout<<chunk<<" "<<len<<endl;
-                writtentofile= fwrite(chunk, 1,len, receivedFile);
-                cout<<"writtentofile="<<writtentofile<<endl;
+                if(writtentofile= fwrite(chunk, 1,len, receivedFile)<0){
+                	error("cant write to file");
+                }
+                //cout<<"writtentofile="<<writtentofile<<endl;
                 	// if revd file size == filesize it means we received complete file.
                  if(rcvd_file_size==filesize){
                  	cout<<"in if condition rcvd_file_size= "<<rcvd_file_size<<endl<<"filesize="<<filesize<<endl;
