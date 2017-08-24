@@ -13,7 +13,6 @@
 #include <pthread.h>
 #include <unistd.h> //for read and write functions
 #include <arpa/inet.h> //for inet_ntop() function
-#include <string.h>
 #include <pthread.h>
 #include <unistd.h> //for read and write functions
 #include <arpa/inet.h> //for inet_ntop() function
@@ -32,6 +31,7 @@ struct clientArgs {
 struct backendArgs {
     char filename[50];
     string userid;
+    long filesize;
 };
 void error(const char *msg){
   perror(msg);
@@ -280,11 +280,25 @@ void *send_file_to_backend(void* arguments)
   cout <<args->userid << args->filename <<endl;
   
   int socket = connect_to_backend();
+  char toSend[BUFFER_SIZE];
+  bzero(toSend,BUFFER_SIZE);
   string fname = string(args->filename);
   string username = string(args->userid);
-  string toSend = "1 " + username + " " + fname;
-  cout << "toSend:" << toSend.c_str() << endl;
-  send(socket,toSend.c_str(),strlen(toSend.c_str()),0);
+  //string filesize = string(args->filesize);
+  char fname1[50] ;
+  //cout<<sizeof(fname);
+  fname.copy(fname1,sizeof(fname),0);
+  char username1[50];
+  username.copy(username1,sizeof(username),0);
+  //char filesize1[50];
+  //filesize.copy(filesize,sizeof(filesize),0);
+
+  int choice = 1;
+  sprintf(toSend,"%d %ld %s %s",choice,args->filesize,username1,fname1);
+  //string toSend = "1"+ " " + filesize + " " +username + " " + fname ; 
+
+  cout << "toSend:" << toSend << endl;
+  send(socket,toSend,strlen(toSend),0);
   char feedback_from_backend[10]; 
   memset(&feedback_from_backend,0,sizeof(feedback_from_backend));
   int nbytes = recv(socket,feedback_from_backend,sizeof feedback_from_backend,0);
@@ -297,7 +311,7 @@ void *send_file_to_backend(void* arguments)
   cout << "feedback int" << received_feedback << endl;
   if(received_feedback)
   {
-    string fileLocation = fname;
+    string fileLocation = args->filename;
 
   FILE *sendFile = NULL;
 
@@ -308,8 +322,9 @@ void *send_file_to_backend(void* arguments)
 
   int sentData=0;
                     //----buffer chunk to create the file in chunk.
-  char chunk[512];
-  memset(&chunk,0,sizeof(chunk));
+  char chunk[BUFFER_SIZE];
+  bzero(chunk,BUFFER_SIZE);
+  //memset(&chunk,0,sizeof(chunk));
   int len;
   //-------reading the requested file in chunk.
   while ((len=fread(chunk,1,sizeof chunk, sendFile)) > 0) 
@@ -319,6 +334,11 @@ void *send_file_to_backend(void* arguments)
             sentData+=len;
 
         }
+  char response[20];
+  bzero(response,20);
+  int n = read(socket,response,20);
+  cout<<"response from backendserver after sending all chunks at client end is "<<response<<endl;
+  cout<<"Total bytes sent to backenserver are = "<<sentData;
   fclose(sendFile);
   close(socket);
   pthread_exit(NULL);
@@ -328,7 +348,7 @@ void *send_file_to_backend(void* arguments)
 
 
 }
-void receive_file_from_client(int sock,char file_name[50],string userId,long int filesize){
+void receive_file_from_client(int sock,char file_name[50],string userId,long filesize){
 	cout<<"received filename to upload at server is:"<<file_name<<endl;
 	cout<<"inside receive_file_from_client function"<<endl;
 // char send_str[BUFFER_SIZE];
@@ -368,20 +388,26 @@ void receive_file_from_client(int sock,char file_name[50],string userId,long int
  close(f); /* close file*/
 
 
- cout<<"Client Received:"<<rcvd_file_size<<" bytes in "<<recv_count<<" recv(s)\n"<<endl;
+cout<<"Client Received:"<<rcvd_file_size<<" bytes in "<<recv_count<<" recv(s)\n"<<endl;
 cout<<"hello"<<endl;
 pthread_t handle_backend;
 cout<<"hello"<<endl;
 struct backendArgs *args;
 args = (backendArgs *)malloc(sizeof(struct backendArgs));
 cout<<"hello"<<endl;
-cout<<"args->filename= before = "<<args->filename<<endl;
+//cout<<"args->filename= before = "<<args->filename<<endl;
 
-cout<<"args->userid = before = "<<args->userid<<endl;
+//cout<<"args->userid = before = "<<args->userid<<endl;
 
 
 
 args->userid = userId;
+cout<<"filesize = "<<filesize;
+//char fsize[50];
+//sprintf(fsize,"%ld",filesize);
+args->filesize = filesize;
+//memcpy(args->filesize,fsize,sizeof(args->filesize));
+cout<<"args->filesize = "<<args->filesize<<endl;
 //args->userid = "userId";
 cout<<"args->userid = "<<args->userid<<endl;
 cout<<"strlen(file_name)= "<<strlen(file_name)<<endl;

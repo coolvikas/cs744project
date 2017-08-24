@@ -26,6 +26,12 @@ struct workerArgs
     int socket;
 };
 
+void error(const char *msg){
+  perror(msg);
+  exit(1);
+}
+
+
 void *accept_clients(void *args);
 void *service_single_client(void *args);
 
@@ -189,18 +195,19 @@ void sendFile(char* dirName,char* fileName,int socket)
 }
 
 
-void receiveFile(char* dirName,char* fileName,int socket)
+void receiveFile(char* dirName,char* fileName,int socket,long filesize)
 {
     struct stat st = {0};
 
     if (stat(dirName, &st) == -1) 
         mkdir(dirName, 0700);
-    cout << dirName << endl;
+    cout << filesize << endl;
     string fileLocation = string(dirName) + "/" + string(fileName);
 
     FILE *receivedFile;
     int remainData,fileSize;
-    ssize_t len;
+    ssize_t len,writtentofile;
+    long rcvd_file_size=0;
     receivedFile = fopen(fileLocation.c_str(),"w");
 
      if (receivedFile == NULL)
@@ -211,21 +218,33 @@ void receiveFile(char* dirName,char* fileName,int socket)
 
         }
 
-    char chunk[512];
+    char chunk[BUFF_SIZE];
     memset(&chunk,'\0',sizeof chunk);
    
     //Receiving the file in chunks.
 
-    while ((len = recv(socket, chunk, sizeof(chunk), 0)) > 0)
-        {       
-                
+    while ((len = recv(socket, chunk, BUFF_SIZE, 0)) > 0)
+
+        {       //cout<<"len="<<len;
+                rcvd_file_size+=len;
                 //cout<<chunk<<" "<<len<<endl;
-                fwrite(chunk, 1,len, receivedFile);
-    
+                writtentofile= fwrite(chunk, 1,len, receivedFile);
+                cout<<"writtentofile="<<writtentofile<<endl;
+                	// if revd file size == filesize it means we received complete file.
+                 if(rcvd_file_size==filesize){
+                 	cout<<"in if condition rcvd_file_size= "<<rcvd_file_size<<endl<<"filesize="<<filesize<<endl;
+
+ 					int n = write(socket,"ack",3);
+ 					if (n < 0) error("ERROR writing to socket");
+ 					break;
+ 				}
+ 
+    	
         }
         fclose(receivedFile);
+        cout<<"rcvd_file_size="<<rcvd_file_size<<endl;
         
-       // printf("Receiving file %s status %s\n",fileName.c_str(),strerror(errno));
+        printf("Receiving file %s status %s\n",fileName,strerror(errno));
        close(socket); 
        pthread_exit(NULL);
 
@@ -249,9 +268,9 @@ void *service_single_client(void *args) {
 
     while(1)
     {
-        sprintf(tosend,"%d Upload OR Download\n", (int) time(NULL));
+        //sprintf(tosend,"%d Upload OR Download\n", (int) time(NULL));
 
-        nbytes = send(socket, tosend, strlen(tosend), 0);
+        //nbytes = send(socket, tosend, strlen(tosend), 0);
 
         char buff[BUFF_SIZE];
         memset(&buff,0,sizeof(buff));
@@ -266,7 +285,7 @@ void *service_single_client(void *args) {
                 free(wa);
                 pthread_exit(NULL);
 
-                        }
+            }
             else {
                 perror("recv");
                  }
@@ -274,22 +293,33 @@ void *service_single_client(void *args) {
         else
 
          {  int flag=1;
+         	bzero(feedback,sizeof(feedback));
             sprintf(feedback,"%d", flag);
             nbytes = send(socket,feedback,strlen(feedback),0);
             if (nbytes != -1)
                 cout << "sent feedback " << feedback << endl;
          }
         cout << "buff:" << buff <<endl;
-       char *command = strtok (buff," ");
+       int command;
+       char fileName[50];
+       long filesize;
+       char dirName[50] ;
+       sscanf(buff,"%d %ld %s %s ",&command,&filesize,dirName,fileName);
+
        
-       char *dirName = strtok (NULL," ");
+       cout<<"filesize="<<filesize<<endl;
+       
+       cout<<"strtok filename = "<<fileName<<endl;
+       cout<<"strtok dirName= "<<dirName<<endl;
 
-       char *fileName = strtok (NULL," ");
 
-       if(!strcmp(command,"1"))
-        receiveFile(dirName,fileName,socket);
+       
+       
 
-       else if(!strcmp(command,"2"))
+       if(command==1)
+        receiveFile(dirName,fileName,socket,filesize);
+
+       else if(command==2)
         sendFile(dirName,fileName,socket);
 
        else
