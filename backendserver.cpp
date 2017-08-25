@@ -131,14 +131,7 @@ void *accept_clients(void *args)
             continue;
         }
 
-        /* We're now connected to a client. We're going to spawn a "worker thread" to handle
-           that connection. That way, the server thread can continue running, accept more connections,
-            and spawn more threads to handle them. 
-           The worker thread needs to know what socket it must use to communicate with the client,
-           so we'll pass the clientSocket as a parameter to the thread. Although we could arguably
-           just pass a pointer to clientSocket, it is good practice to use a struct that encapsulates
-           the parameters to the thread (even if there is only one parameter). In this case, this is
-           sone with the workerArgs struct. */
+        
         wa = (struct workerArgs *)malloc(sizeof(struct workerArgs));
         wa->socket = clientSocket;
 
@@ -157,14 +150,8 @@ void *accept_clients(void *args)
 }
 
 
-/* This is the function that is run by the "worker thread".
-   It is in charge of "handling" an individual connection and, in this case
-   all it will do is send a message every five seconds until the connection
-   is closed.
-   See oneshot-single.c and client.c for more documentation on how the socket
-   code works.
- */
-void sendFile(char* dirName,char* fileName,int socket)
+
+void sendFile(char* dirName,char* fileName,int socket,long filesize)
 {
     string fileLocation = string(dirName) + "/" + string(fileName);
 
@@ -177,7 +164,7 @@ void sendFile(char* dirName,char* fileName,int socket)
 
     int sentData=0;
                     //----buffer chunk to create the file in chunk.
-    char chunk[30];
+    char chunk[BUFF_SIZE];
     memset(&chunk,0,sizeof(chunk));
     int len;
                      //-------reading the requested file in chunk.
@@ -186,6 +173,13 @@ void sendFile(char* dirName,char* fileName,int socket)
             len=send(socket,chunk,len,0);
                         
             sentData+=len;
+            if(sentData == filesize){
+                    
+
+                    int n = write(socket,"ack",3);
+                    if (n < 0) error("ERROR writing to socket");
+                    break;
+                }
 
         }
     fclose(sendFile);
@@ -204,7 +198,7 @@ void receiveFile(char* dirName,char* fileName,int socket,long filesize)
     cout << filesize << endl;
     string fileLocation = string(dirName) + "/" + string(fileName);
 
-    FILE *receivedFile;
+    FILE *receivedFile = NULL;
     ssize_t len,writtentofile;
     long rcvd_file_size=0;
     receivedFile = fopen(fileLocation.c_str(),"w");
