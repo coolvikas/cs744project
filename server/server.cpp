@@ -360,7 +360,7 @@ void receive_file_from_client(int sock,char file_name[50],string userId,long fil
   rcvd_file_size = 0; /* size of received file */
   int counter=0;
  
-  if ( (f = open(file_name, O_WRONLY|O_CREAT, 0644)) < 0 )
+ if ( (f = open(file_name, O_WRONLY|O_CREAT, 0644)) < 0 )
  {
  error("error creating file");
  //return -1;
@@ -521,24 +521,75 @@ void clear_session(int newsockfd, char buff[BUFFER_SIZE], char clientip[50]){
   		error("Error writing to socket");
   }
 }
+
+
+
+void session_verify_before_sending_to_client(int newsockfd, char buffer[BUFFER_SIZE],char clientip[50]){
+	cout<<"inside session_verify_before_sending_to_client()"<<endl;
+	char filename[50];
+	int n;
+	int initial;  // 4 sid filename
+	int sid;
+	long int filesize;
+    sscanf(buffer,"%d %d %s",&initial,&sid,filename);
+  	cout<<"received filename at server to send to client is:"<<filename<<endl;
+  	int sessionactiveflag=checksessionactive(clientip,sid);
+  	bzero(buffer,BUFFER_SIZE);
+
+  	//if session active then make a thread to backed to send the requested file to client.
+  	if(sessionactiveflag==1){
+  		printf("session match found at server\n");
+
+  		// make a call to backend server with message id "2 filename". This function will return the filesize 
+  		// which i will send back to client and in turn receive an ack for filesize from client. then we will send file to backend.
+
+  		//long filesize = some function call ()
+
+  		sprintf(buffer,"%d %ld",sessionactiveflag,filesize);
+  		n = write(newsockfd,buffer,strlen(buffer));
+  		if(n<0){
+  			error("Error writing to socket");
+  		}
+  		// receive filesize response from client
+  		bzero(buffer,BUFFER_SIZE);
+  		n = read(newsockfd,buffer,BUFFER_SIZE);
+  		cout<<"ack from client after sending file is:"<<buffer<<endl;
+  		if(!strcmp(buffer,"filesize_received_ack")){
+  			//means client successfully received filesize. now start sending file to client.
+  			// call some fuinction to send file received from backend server to client.
+  			// send_file_to_client_after_receiving_file_from_backend();
+  		}
+  	} // if close
+
+  	// else means client is not logged in to server. make him login first.
+  	else{
+  		long filesize = 0;
+  		sprintf(buffer,"%d %ld",sessionactiveflag,filesize);
+  		n = write(newsockfd,buffer,strlen(buffer));
+  		if(n<0){
+  			error("Error writing to socket");
+  		}
+  	} // else close
+
+
+} //session_verify_before_sending_to_client()  close
+
+
+
 void *service_single_client(void *args){
 	struct clientArgs *wa;
 	int newsockfd;  
 
     /* Unpack the arguments */
-   wa = (struct clientArgs*) args;
-   newsockfd = wa->socket;
+    wa = (struct clientArgs*) args;
+    newsockfd = wa->socket;
 
 	    /* This tells the pthreads library that no other thread is going to
        join() this thread. This means that, once this thread terminates,
        its resources can be safely freed (instead of keeping them around
        so they can be collected by another thread join()-ing this thread) */
-  pthread_detach(pthread_self());
-  
-
-  fprintf(stderr, "Socket %d connected\n", newsockfd);
-	
-	
+    pthread_detach(pthread_self());
+  	fprintf(stderr, "Socket %d connected\n", newsockfd);
 	int n;
 
 	//get client ip and port from scoket 
@@ -568,46 +619,48 @@ void *service_single_client(void *args){
 
 
 	while(1){
-	char buffer[BUFFER_SIZE];
-	bzero(buffer,BUFFER_SIZE);
-	int n;
-  n = read(newsockfd,buffer,256);
-  if(n<0){
-    error("ERROR reading from socket");
-  }
-  char *garbage=NULL; 
-  int choice;
-  cout<<"buffer received at server is:"<<buffer<<endl;
-  sscanf(buffer,"%d %s",&choice,garbage);
-  cout << choice << endl;
-  switch(choice){
-    case 1:
-    {
-
-      verifyuserlogin(newsockfd,buffer,ipstr);
-      break;
-    }
-		case 2:
-    {
-      pt(1);
-      signupuser(newsockfd,buffer);
-      break;
-    }
-		
-		case 3:
-		{
-			session_verify_before_receiving_from_client(newsockfd,buffer,ipstr);
-			break;
-		}
-		case 5:
-		{
-			clear_session(newsockfd,buffer,ipstr);
-			break;
-		}
-	}  // switch close
+		char buffer[BUFFER_SIZE];
+		bzero(buffer,BUFFER_SIZE);
+		int n;
+  		n = read(newsockfd,buffer,256);
+  		if(n<0){
+    		error("ERROR reading from socket");
+  		}
+  		char *garbage=NULL; 
+  		int choice;
+  		cout<<"buffer received at server is:"<<buffer<<endl;
+  		sscanf(buffer,"%d %s",&choice,garbage);
+  		cout << choice << endl;
+  		switch(choice){
+    		case 1:
+    		{
+      			verifyuserlogin(newsockfd,buffer,ipstr);
+      			break;
+    		}
+			case 2:
+    		{
+      			pt(1);
+      			signupuser(newsockfd,buffer);
+      			break;
+    		}
+			case 3:
+			{
+				session_verify_before_receiving_from_client(newsockfd,buffer,ipstr);
+				break;
+			}
+			case 4:
+			{
+				session_verify_before_sending_to_client(newsockfd,buffer,ipstr);
+				break;
+			}
+			case 5:
+			{
+				clear_session(newsockfd,buffer,ipstr);
+				break;
+			}
+   		}  // switch close
 	}	//while close
-
-} //function close
+} //function service_single_client close
 
 int main(int argc, char *argv[]){
 	/* The pthread_t type is a struct representing a single thread. */
