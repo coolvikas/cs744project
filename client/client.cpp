@@ -1,17 +1,17 @@
-#include<stdio.h>
-#include<string>
-#include<sys/types.h>
-#include<sys/socket.h>
-#include<netinet/in.h>
-#include<netdb.h>
-#include<time.h> 
+#include <stdio.h>
+#include <string>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <time.h> 
 #include <fcntl.h> /* O_WRONLY, O_CREAT */
 #include <unistd.h> /* close, write, read */
-#include<string.h>
-#include<iostream>
-#include<cmath>
-#include<stdlib.h> //for exit system call
-#include<unistd.h> //for read and write functions
+#include <string.h>
+#include <iostream>
+#include <cmath>
+#include <stdlib.h> //for exit system call
+#include <unistd.h> //for read and write functions
 #define BUFFER_SIZE 256
 int sessionid;
 
@@ -67,35 +67,15 @@ int send_file(int sock, char *file_name)
  {
 
  error(file_name);
- //if( (sent_bytes = send(sock, errmsg_notfound ,strlen(errmsg_notfound), 0)) < 0 ){
- // perror("send error");
- // return -1;
- // }
+ 
  }
 
  else /* open file successful */
  {
-  /*
-
-  long partitions = ceil(file_len/float(BUFFER_SIZE));
-  cout<<"partitions calculated:"<<partitions<<endl ;
-  char buffer1[BUFFER_SIZE];
-  //int eof = EOF;
-  //cout<<"eof= "<<eof<<endl;
-  bzero(buffer1,BUFFER_SIZE);
-  sprintf(buffer1,"%ld",partitions);
-  cout<<"writing partitions to sever socket"<<endl;
-  int n = write(sock,buffer1,strlen(buffer1));
-  if(n<0){
-     error("ERROR writing to socket");
-  } 
-  char replybuffer[BUFFER_SIZE];
-  bzero(replybuffer,BUFFER_SIZE);
-  n = read(sock,replybuffer,sizeof(replybuffer));
-  cout<<"server reply after sending partitions is:"<<replybuffer<<endl;   */
+  
   
   printf("Sending file: %s\n", file_name);
-  //sleep(2);
+  
  while( (read_bytes = read(f, send_buf, BUFFER_SIZE)) > 0 )
  {
  if( (sent_bytes = send(sock, send_buf, read_bytes,0))< read_bytes )
@@ -175,7 +155,7 @@ int upload(int sockfd){
 void logout(int sockfd){
   char buffer1[BUFFER_SIZE];
   bzero(buffer1,BUFFER_SIZE);
-  int choice = 5;
+  int choice = 10;
   sprintf(buffer1,"%d %d",choice,sessionid);
   int n = write(sockfd,buffer1,strlen(buffer1));
   if(n<0){
@@ -263,6 +243,7 @@ int download(int sockfd){
       {
           int n = write(sockfd,"ack",3);
           if (n < 0) error("ERROR writing to socket");
+
           break;
       }
     }  //while close
@@ -272,6 +253,45 @@ int download(int sockfd){
 
 
 } // close download
+
+
+void get_filesystem_from_server (int sockfd)
+{
+    int choice = 4;
+    char* filestat = "filestat";
+    char buff[BUFFER_SIZE];
+    memset(&buff,BUFFER_SIZE,0);
+
+    sprintf(buff,"%d %d %s",choice,sessionid,filestat); 
+
+    int n = send(sockfd,buff,sizeof(buff),0);
+    if (n < 0) error("get_filesystem_from_server:ERROR writing to socket");
+
+
+    char *response = NULL;
+    
+
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -314,8 +334,9 @@ int main(int argc, char *argv[])
     printf("1.Login\n" );
     printf("2.Signup\n" );
     printf("3.Upload Files\n");
-    printf("4.Downlaod Files\n");
-    printf("5.Logout\n");
+    printf("4.Check File system\n");
+    printf("5.Downlaod Files\n");
+    printf("10.Logout\n");
 
     scanf("%d",&choice );
     
@@ -385,11 +406,15 @@ int main(int argc, char *argv[])
         }
         case 4:
         {
+          get_filesystem_from_server(sockfd);
+        }
+        case 5:
+        {
           
           int flag = download(sockfd);
           break;
         }
-        case 5:
+        case 10:
         {
             logout(sockfd);
             break;
