@@ -41,34 +41,34 @@ void error(const char *msg){
 int generatesessionid(char clientip[50],char uname[50]){
 	srand (time(NULL)); // generate a seed using the current time
 	char *username = (char *)malloc(sizeof(char)*50);
-  username = uname; 
+    username = uname; 
 	int sessionid = rand(); // generate a random session ID
 	cout<<"generated a new session id for client"<<sessionid<<endl;
 	ip_map_sessionid.insert(pair <char *, int> (clientip, sessionid)); //insert client ip and sessionid into global map
 	// printing map ip_map_sessionid
 	ip_map_uname.insert(pair<char*, string> (clientip,username));
-  map <char *, int> :: iterator itr;
-  cout << "\nThe map ip_map_sessionid is : \n";
-  cout << "\tKEY\tELEMENT\n";
-  for (itr = ip_map_sessionid.begin(); itr != ip_map_sessionid.end(); ++itr)
-  {
+  	map <char *, int> :: iterator itr;
+  	cout << "\nThe map ip_map_sessionid is : \n";
+  	cout << "\tKEY\tELEMENT\n";
+  	for (itr = ip_map_sessionid.begin(); itr != ip_map_sessionid.end(); ++itr)
+  	{
         cout  <<  '\t' << itr->first 
               <<  '\t' << itr->second << '\n';
-  }
-  cout<<endl;
-  map <char *, string > :: iterator itr1;
-  cout << "\nThe map ip_map_uname is : \n";
-  cout << "\tKEY\tELEMENT\n";
-  for (itr1 = ip_map_uname.begin(); itr1 != ip_map_uname.end(); ++itr1)
-  {
+  	}
+  	cout<<endl;
+  	map <char *, string > :: iterator itr1;
+  	cout << "\nThe map ip_map_uname is : \n";
+  	cout << "\tKEY\tELEMENT\n";
+  	for (itr1 = ip_map_uname.begin(); itr1 != ip_map_uname.end(); ++itr1)
+  	{
         cout  <<  '\t' << itr1->first 
               <<  '\t' << itr1->second << '\n';
-  }
+  	}
 
-  cout << endl;
-  return sessionid;
-}
-
+  	cout << endl;
+  	return sessionid;
+}  // generatesessionid() closed
+ 
 int checksessionactive(char clientip[50],int sessionid){
 	int sessionactiveflag=0;
 	if (ip_map_sessionid.count(clientip)>0){
@@ -81,39 +81,39 @@ int checksessionactive(char clientip[50],int sessionid){
 
 void verifyuserlogin(int newsockfd,char buffer[BUFFER_SIZE],char clientip[50]){
 	char uname[20],passwd[20];
-  int initial;
-  sscanf(buffer,"%d %s %s",&initial,uname,passwd);
-  printf("Received username passwd from client is:\n" );
-  fputs(uname,stdout);
-  fputs(" ",stdout);
-  fputs(passwd,stdout);
-  printf("\n" );
-  FILE *fptr;
-  char funame[20],fpasswd[20];
-  char line[30];
-  int flag =0;
-  int n;
-  fptr = fopen("new.txt","r");
-  cout<<"opened file to find client name"<<endl;
-  while(fgets(line,sizeof(line),fptr)!= NULL){
-    sscanf(line,"%s%s",funame,fpasswd);
-    if(!strcmp(uname,funame)){
-      if(!strcmp(passwd,fpasswd)){
-      printf("successfully authenticated at server end.\n" );
-      flag =1;
-      break;
-      }
-    }
+  	int initial;
+  	sscanf(buffer,"%d %s %s",&initial,uname,passwd);
+  	printf("Received username passwd from client is:\n" );
+  	fputs(uname,stdout);
+  	fputs(" ",stdout);
+  	fputs(passwd,stdout);
+  	printf("\n" );
+  	FILE *fptr;
+  	char funame[20],fpasswd[20];
+  	char line[30];
+  	int flag =0;
+  	int n;
+  	fptr = fopen("new.txt","r");
+  	cout<<"opened file to find client name"<<endl;
+  	while(fgets(line,sizeof(line),fptr)!= NULL){
+    	sscanf(line,"%s%s",funame,fpasswd);
+    	if(!strcmp(uname,funame)){
+      	if(!strcmp(passwd,fpasswd)){
+      		printf("successfully authenticated at server end.\n" );
+      		flag =1;
+      		break;
+      		}
+    	}
 
-  } //while ends
-  fclose(fptr);
-  cout<<"client ip count is:"<<ip_map_sessionid.count(clientip)<<endl;
-  if (ip_map_sessionid.count(clientip)>0){
-  	flag = 2;
-  }
-  if(flag ==1 ){
+  	} //while ends
+  	fclose(fptr);
+  	cout<<"client ip count is:"<<ip_map_sessionid.count(clientip)<<endl;
+  	if (ip_map_sessionid.count(clientip)>0){
+  		flag = 2;
+ 	}
 
-  		cout<<"Generating a session id"<<endl;
+  	if(flag ==1 ){
+		cout<<"Generating a session id"<<endl;
   		int sessionid = generatesessionid(clientip,uname);
         bzero(buffer,0);
         sprintf(buffer,"%d %d",flag,sessionid);
@@ -121,9 +121,9 @@ void verifyuserlogin(int newsockfd,char buffer[BUFFER_SIZE],char clientip[50]){
         if(n<0){
           error("ERROR writing to socket");
         }
-  }
+  	}
 
-  else if(flag == 0){
+  	else if(flag == 0){
         bzero(buffer,0);
         int sessionid = 0;
         sprintf(buffer,"%d %d",flag,sessionid);
@@ -132,8 +132,8 @@ void verifyuserlogin(int newsockfd,char buffer[BUFFER_SIZE],char clientip[50]){
         if(n<0){
           error("ERROR writing to socket");
         }
-  }
-  else if(flag == 2){
+  	}
+  	else if(flag == 2){
   	bzero(buffer,0);
   	int sid = ip_map_sessionid[clientip];
   	sprintf(buffer,"%d %d",flag,sid);
@@ -141,9 +141,9 @@ void verifyuserlogin(int newsockfd,char buffer[BUFFER_SIZE],char clientip[50]){
      if(n<0){
        error("ERROR writing to socket");
      }
-  }
+  	}  // else if ends
   
-}
+}  // verifyuserlogin() ends
 
 
 //function to check if user is previously registered or not 
@@ -271,13 +271,11 @@ int connect_to_backend(void)
 
 
 }
-void *send_file_to_backend(void* arguments)
-{
+void *send_file_to_backend(void* arguments){
 
-  cout<<"inside send_file_to_backend"<<endl;
-  struct backendArgs *args = (struct backendArgs *)arguments;
-
-  cout <<args->userid << args->filename <<endl;
+	cout<<"inside send_file_to_backend"<<endl;
+  	struct backendArgs *args = (struct backendArgs *)arguments;
+	
   
   int socket = connect_to_backend();
   char toSend[BUFFER_SIZE];
@@ -403,84 +401,63 @@ void *receive_file_from_backend(void* arguments)
 void receive_file_from_client(int sock,char file_name[50],string userId,long filesize){
 	cout<<"received filename to upload at server is:"<<file_name<<endl;
 	cout<<"inside receive_file_from_client function"<<endl;
-// char send_str[BUFFER_SIZE];
- int f; 
- ssize_t sent_bytes, rcvd_bytes, rcvd_file_size;
- int recv_count; 
- char recv_str[BUFFER_SIZE]; 
-  recv_count = 0; /* number of recv() calls required to receive the file */
-  rcvd_file_size = 0; /* size of received file */
-  int counter=0;
+ 	int f; 
+ 	ssize_t sent_bytes, rcvd_bytes, rcvd_file_size;
+ 	int recv_count; 
+ 	char recv_str[BUFFER_SIZE]; 
+  	recv_count = 0; /* number of recv() calls required to receive the file */
+  	rcvd_file_size = 0; /* size of received file */
+  	
  
- if ( (f = open(file_name, O_WRONLY|O_CREAT, 0644)) < 0 )
- {
- error("error creating file");
- //return -1;
- }
+ 	if ( (f = open(file_name, O_WRONLY|O_CREAT, 0644)) < 0 )
+ 	{
+ 	error("error creating file");
+ 	}
  
- cout<<"test after opening file in write mode"<<endl;
- while ((rcvd_bytes = recv(sock, recv_str, BUFFER_SIZE,0)) > 0){
+ 	cout<<"test after opening file in write mode"<<endl;
+ 	while ((rcvd_bytes = recv(sock, recv_str, BUFFER_SIZE,0)) > 0){
+ 		recv_count++;
+ 		rcvd_file_size += rcvd_bytes;
+
+ 		if (write(f, recv_str, rcvd_bytes) < 0 )
+ 		{
+ 			error("error writing to file");
+ 		}  
+ 		if(rcvd_file_size==filesize){
+ 		int n = write(sock,"ack",3);
+ 		if (n < 0) error("ERROR writing to socket");
+ 		break;
+ 		}
  
- counter++;
- recv_count++;
- rcvd_file_size += rcvd_bytes;
-
- if (write(f, recv_str, rcvd_bytes) < 0 )
- {
- error("error writing to file");
- //return -1;
- }  
- if(rcvd_file_size==filesize){
- 	int n = write(sock,"ack",3);
- 	if (n < 0) error("ERROR writing to socket");
- 	break;
- }
- 
- }
- close(f); /* close file*/
+ 	}  // while close
+ 	close(f); /* close file*/
+	cout<<"Client Received:"<<rcvd_file_size<<" bytes in "<<recv_count<<" recv(s)\n"<<endl; 
 
 
-cout<<"Client Received:"<<rcvd_file_size<<" bytes in "<<recv_count<<" recv(s)\n"<<endl;
-cout<<"hello"<<endl;
-pthread_t handle_backend;
-cout<<"hello"<<endl;
-struct backendArgs *args;
-args = (backendArgs *)malloc(sizeof(struct backendArgs));
-cout<<"hello"<<endl;
-//cout<<"args->filename= before = "<<args->filename<<endl;
+	cout<<"hello"<<endl;
+	pthread_t handle_backend;
+	cout<<"hello"<<endl;
+	struct backendArgs *args;
+	args = (backendArgs *)malloc(sizeof(struct backendArgs));
+	cout<<"hello"<<endl;
+	args->userid = userId;
+	cout<<"filesize = "<<filesize;
+	args->filesize = filesize;
+	cout<<"args->filesize = "<<args->filesize<<endl;
+	cout<<"args->userid = "<<args->userid<<endl;
+	memcpy(args->filename,file_name,sizeof(args->filename));
+	cout<<"args->filename="<<args->filename<<endl;
 
-//cout<<"args->userid = before = "<<args->userid<<endl;
-
-
-
-args->userid = userId;
-cout<<"filesize = "<<filesize;
-//char fsize[50];
-//sprintf(fsize,"%ld",filesize);
-args->filesize = filesize;
-//memcpy(args->filesize,fsize,sizeof(args->filesize));
-cout<<"args->filesize = "<<args->filesize<<endl;
-//args->userid = "userId";
-cout<<"args->userid = "<<args->userid<<endl;
-cout<<"strlen(file_name)= "<<strlen(file_name)<<endl;
-cout<<"sizeof(file_name)= "<<sizeof(file_name)<<endl;
-//strncpy(args->filename,file_name,strlen(file_name));
-memcpy(args->filename,file_name,sizeof(args->filename));
-//args->filename = "file_name";
-cout<<"args->filename="<<args->filename<<endl;
-
-cout<<"inserted args in new thread"<<endl;  
-if (pthread_create(&handle_backend, NULL, send_file_to_backend,args) != 0) {
+	cout<<"inserted args in new thread"<<endl;  
+	if (pthread_create(&handle_backend, NULL, send_file_to_backend,args) != 0) {
         error("Could not create a worker thread");
         free(args);
-        
     }
-cout<<"hello"<<endl;
-pthread_join(handle_backend,NULL);   
+	cout<<"hello"<<endl;
+	pthread_join(handle_backend,NULL);   
+	cout<<"going back from receive_file_from_client"<<endl;
 
- cout<<"going back from receive_file_from_client"<<endl;
-
-}
+}  // receive_file_from_client() closed
 
 
 void session_verify_before_receiving_from_client(int newsockfd, char buffer[BUFFER_SIZE],char clientip[50]){
@@ -490,34 +467,34 @@ void session_verify_before_receiving_from_client(int newsockfd, char buffer[BUFF
 	int initial;
 	int sid;
 	long int filesize;
-  sscanf(buffer,"%d %d %s %ld",&initial,&sid,filename,&filesize);
-  cout<<"received filename to upload at server is:"<<filename<<endl;
-  cout<<"filesize is: "<<filesize<<endl;
-  int sessionactiveflag=checksessionactive(clientip,sid);
-  bzero(buffer,BUFFER_SIZE);
+    sscanf(buffer,"%d %d %s %ld",&initial,&sid,filename,&filesize);
+  	cout<<"received filename to upload at server is:"<<filename<<endl;
+  	cout<<"filesize is: "<<filesize<<endl;
+  	int sessionactiveflag=checksessionactive(clientip,sid);
+  	bzero(buffer,BUFFER_SIZE);
 
-  //if session active then call receive_file_from_client
-  if(sessionactiveflag==1){
-  	printf("session match found at server\n");
-  	sprintf(buffer,"%d",sessionactiveflag);
-  	n = write(newsockfd,buffer,strlen(buffer));
-  	if(n<0){
-  		error("Error writing to socket");
-  	}
+  	//if session active then call receive_file_from_client
+  	if(sessionactiveflag==1){
+  		printf("session match found at server\n");
+  		sprintf(buffer,"%d",sessionactiveflag);
+  		n = write(newsockfd,buffer,strlen(buffer));
+  		if(n<0){
+  			error("Error writing to socket");
+  		}
 
     cout<<"after for loop"<<endl;
     map <char *, int> :: iterator itr;
-  cout << "\nThe map ip_map_sessionid is : \n";
-  cout << "\tKEY\tELEMENT\n";
-  for (itr = ip_map_sessionid.begin(); itr != ip_map_sessionid.end(); ++itr)
-  {
+  	cout << "\nThe map ip_map_sessionid is : \n";
+  	cout << "\tKEY\tELEMENT\n";
+  	for (itr = ip_map_sessionid.begin(); itr != ip_map_sessionid.end(); ++itr)
+  	{
         cout  <<  '\t' << itr->first 
               <<  '\t' << itr->second << '\n';
-  }
-  cout<<endl;
+  	}
+  	cout<<endl;
     map <char *, string > :: iterator itr1;
-  cout << "\nThe map ip_map_uname is : \n";
-  cout << "\tKEY\tELEMENT\n";
+  	cout << "\nThe map ip_map_uname is : \n";
+  	cout << "\tKEY\tELEMENT\n";
     for (itr1 = ip_map_uname.begin(); itr1 != ip_map_uname.end(); ++itr1)
     {
         cout  <<  '\t' << itr1->first 
@@ -553,6 +530,7 @@ void session_verify_before_receiving_from_client(int newsockfd, char buffer[BUFF
 
 }
 
+// clear_session 
 void clear_session(int newsockfd, char buff[BUFFER_SIZE], char clientip[50]){
 	int session_cleared=0;
 	int client_sessionid,choice;
@@ -569,9 +547,9 @@ void clear_session(int newsockfd, char buff[BUFFER_SIZE], char clientip[50]){
 	sprintf(buffer,"%d",session_cleared);
 	cout<<"logout():value before witing buffer is:"<<buffer;
 	int n = write(newsockfd,buffer,strlen(buffer));
-  if(n<0){
+    if(n<0){
   		error("Error writing to socket");
-  }
+    }
 }
 
 
@@ -721,7 +699,6 @@ void *service_single_client(void *args){
   		int choice;
   		cout<<"buffer received at server is:"<<buffer<<endl;
   		sscanf(buffer,"%d %s",&choice,garbage);
-  		cout << choice << endl;
   		switch(choice){
     		case 1:
     		{
@@ -741,10 +718,14 @@ void *service_single_client(void *args){
 			}
 			case 4:
 			{
+
+			}
+			case 5:
+			{
 				session_verify_before_sending_to_client(newsockfd,buffer,ipstr);
 				break;
 			}
-			case 5:
+			case 10:
 			{
 				clear_session(newsockfd,buffer,ipstr);
 				break;
