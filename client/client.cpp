@@ -50,51 +50,47 @@ char* signupuser(){
 
 }
 
-int send_file(int sock, char *file_name)
-{
- int sent_count; /* how many sending chunks, for debugging */
- int read_bytes, /* bytes read from local file */
- sent_bytes, /* bytes sent to connected socket */
- sent_file_size;
- char send_buf[BUFFER_SIZE]; /* max chunk size for sending file */
- const char * errmsg_notfound = "File not found\n";
+int send_file(int sock, char *file_name){
+  int sent_count; /* how many sending chunks, for debugging */
+  int read_bytes, /* bytes read from local file */
+  sent_bytes, /* bytes sent to connected socket */
+  sent_file_size;
+  char send_buf[BUFFER_SIZE]; /* max chunk size for sending file */
+  const char * errmsg_notfound = "File not found\n";
 
- int f; /* file handle for reading local file*/
- sent_count = 0;
- sent_file_size = 0;
- /* attempt to open requested file for reading */
- if( (f = open(file_name, O_RDONLY)) < 0) /* can't open requested file */
- {
+  int f; /* file handle for reading local file*/
+  sent_count = 0;
+  sent_file_size = 0;
+  /* attempt to open requested file for reading */
+  if( (f = open(file_name, O_RDONLY)) < 0) /* can't open requested file */
+  {
+      error(file_name);
+  }
 
- error(file_name);
- 
- }
-
- else /* open file successful */
- {
+  else /* open file successful */
+  {
+    printf("Sending file: %s\n", file_name);
   
-  
-  printf("Sending file: %s\n", file_name);
-  
- while( (read_bytes = read(f, send_buf, BUFFER_SIZE)) > 0 )
- {
- if( (sent_bytes = send(sock, send_buf, read_bytes,0))< read_bytes )
- {
- error("send error");
- return -1;
- }
- sent_count++;
- sent_file_size += sent_bytes;
- }
- close(f);
- } /* end else */
- char response[20];
- bzero(response,20);
- int n = read(sock,response,20);
- cout<<"response from server after sending all chunks at client end is "<<response<<endl;
- printf("Done with this client. Sent %d bytes in %d send(s)\n\n",sent_file_size, sent_count);
-//return sent_count;
+    while( (read_bytes = read(f, send_buf, BUFFER_SIZE)) > 0 )
+    {
+        if( (sent_bytes = send(sock, send_buf, read_bytes,0))< read_bytes )
+        {
+            error("send error");
+            return -1;
+        }
+        sent_count++;
+        sent_file_size += sent_bytes;
+    }
+    close(f);
+  } /* end else */
+  char response[20];
+  bzero(response,20);
+  int n = read(sock,response,20);
+  cout<<"response from server after sending all chunks at client end is "<<response<<endl;
+  printf("Uploaded %d bytes to server in %d send(s)\n\n",sent_file_size, sent_count);
 }
+
+
 
 //code to upload file to server for backup
 
@@ -114,11 +110,11 @@ int upload(int sockfd){
     return 0;
   }
   fclose(fptr);
-   FILE *fptr1;
+  FILE *fptr1;
   fptr1 = fopen(filename,"r");
   fseek(fptr,0, SEEK_END);
-    unsigned long file_len =(unsigned long)ftell(fptr1);
-    printf("length of file is%ld\n",file_len);
+  unsigned long file_len =(unsigned long)ftell(fptr1);
+  printf("length of file is%ld\n",file_len);
   fseek(fptr1,0,SEEK_SET);
   fclose(fptr1);
 
@@ -149,7 +145,7 @@ int upload(int sockfd){
   }
 
 
-}
+}  // upload() closed
 
 //to logout the client from server and removes its session also.
 void logout(int sockfd){
@@ -174,7 +170,8 @@ void logout(int sockfd){
   else{
     cout<<"U are not logged in."<<endl;
   }
-}
+
+}  // logout() closed
 
 
 // This section will download file from remote server. First it will send message request "4 sessionid filename". 
@@ -258,7 +255,8 @@ int download(int sockfd){
 void get_filesystem_from_server (int sockfd)
 {
     int choice = 4;
-    char* filestat = "filestat";
+    char filestat[8] ;
+    memcpy(filestat,"filestat",sizeof(filestat));
     char buff[BUFFER_SIZE];
     memset(&buff,BUFFER_SIZE,0);
 
@@ -269,79 +267,63 @@ void get_filesystem_from_server (int sockfd)
 
 
     char *response = NULL;
-    
+    bzero(buff,BUFFER_SIZE);
+    n = read(sockfd,buff,BUFFER_SIZE);
+    if(n<0){
+     error("get_filesystem_from_server:ERROR reading from socket"); 
+    }
+    cout<<"File system of this client at Server is:"<<response<<endl;
 
-
-}
-
-
-
-
-
-
-
+}  // get_filesystem_from_server() closed
 
 
 
+int main(int argc, char *argv[]){
+    int sockfd, portno ,n;
 
+    struct sockaddr_in server_addr;
+    struct hostent *server;
 
+    if(argc<3){
+      fprintf(stderr,"usage %s hostname port\n", argv[0] );
+      exit(0);
+    }
+    portno = atoi(argv[2]);
+    sockfd = socket(AF_INET,SOCK_STREAM,0);
+    if(sockfd<0){
+      error("Error opening socket");
+    }
+    else{
+      printf("Socket opened successfully\n");
+    }
 
-
-
-
-
-
-
-
-
-
-int main(int argc, char *argv[])
-{
-  int sockfd, portno ,n;
-
-  struct sockaddr_in server_addr;
-  struct hostent *server;
-
-  if(argc<3){
-    fprintf(stderr,"usage %s hostname port\n", argv[0] );
-    exit(0);
-  }
-  portno = atoi(argv[2]);
-  sockfd = socket(AF_INET,SOCK_STREAM,0);
-  if(sockfd<0){
-    error("Error opening socket");
-  }
-  else{
-    printf("Socket opened successfully\n");
-  }
-
-  server = gethostbyname(argv[1]);
-  if(server == NULL){
-    fprintf(stderr, "ERROR no such host\n" );
-    exit(0);
-  }
-  bzero((char *)&server_addr,sizeof(server_addr));
-  server_addr.sin_family = AF_INET;
-  bcopy((char *)server->h_addr, (char *)&server_addr.sin_addr.s_addr,server->h_length);
-  server_addr.sin_port = htons(portno);
-  if(connect(sockfd,(struct sockaddr *)&server_addr,sizeof(server_addr))<0){
-    error("ERROR connecting");
-  }
-  int choice;
-  do {
+    server = gethostbyname(argv[1]);
+    if(server == NULL){
+      fprintf(stderr, "ERROR no such host\n" );
+      exit(0);
+    }
+    bzero((char *)&server_addr,sizeof(server_addr));
+    server_addr.sin_family = AF_INET;
+    bcopy((char *)server->h_addr, (char *)&server_addr.sin_addr.s_addr,server->h_length);
+    server_addr.sin_port = htons(portno);
+    if(connect(sockfd,(struct sockaddr *)&server_addr,sizeof(server_addr))<0){
+      error("ERROR connecting");
+    }
+    int choice;
+    do {
     /* code */
-    printf("Please select an option: (0 to exit)\n" );
-    printf("1.Login\n" );
-    printf("2.Signup\n" );
-    printf("3.Upload Files\n");
-    printf("4.Check File system\n");
-    printf("5.Downlaod Files\n");
-    printf("10.Logout\n");
+      printf("Please select an option: (0 to exit)\n" );
+      printf("1.Login\n" );
+      printf("2.Signup\n" );
+      printf("3.Upload Files\n");
+      printf("4.Check File system\n");
+      printf("5.Downlaod Files\n");
+      printf("10.Logout\n");
 
-    scanf("%d",&choice );
+      scanf("%d",&choice );
     
-    switch(choice)
-    {
+      switch(choice)
+      {
         
         case 1: //loginuser
           ;
@@ -422,10 +404,9 @@ int main(int argc, char *argv[])
         }
 
 
-    }
+      } // switch closed
 
+    }while(choice!=0);
 
-  }while(choice!=0);
-  //printf("%s\n",buffer);
   return 0;
-}
+}  // main() closed

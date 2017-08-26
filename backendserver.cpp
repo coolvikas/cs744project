@@ -315,7 +315,7 @@ void *service_single_client(void *args) {
         receiveFile(dirName,fileName,socket,filesize);
 
        else if(command==2)
-        sendFile(dirName,fileName,socket);
+        sendFile(dirName,fileName,socket,filesize);
 
        else
         fprintf(stderr, "server did not send proper command\n");
