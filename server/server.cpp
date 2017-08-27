@@ -20,7 +20,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #define pt(a) (cout << "Test case:" << a << endl)
-#define BUFFER_SIZE 256
+#define BUFF_SIZE 256
 using namespace std;
 map <char*, int> ip_map_sessionid;
 map <char*, string>ip_map_uname;
@@ -79,7 +79,7 @@ int checksessionactive(char clientip[50],int sessionid){
 	return sessionactiveflag;
 }
 
-void verifyuserlogin(int newsockfd,char buffer[BUFFER_SIZE],char clientip[50]){
+void verifyuserlogin(int newsockfd,char buffer[BUFF_SIZE],char clientip[50]){
 	char uname[20],passwd[20];
   	int initial;
   	sscanf(buffer,"%d %s %s",&initial,uname,passwd);
@@ -169,7 +169,7 @@ int checkcredentials(char uname[20],char passwd[20]){
 	return flag;
 }
 
-void signupuser(int newsockfd,char buffer[BUFFER_SIZE]){
+void signupuser(int newsockfd,char buffer[BUFF_SIZE]){
 	
   pt(2);
   char uname[20],passwd[20];
@@ -271,31 +271,63 @@ int connect_to_backend(void)
 
 
 }
+
+
+
+int communicate_with_backend(int choice,char* file_name,int size,const char* username)
+
+{
+  int sockfd = connect_to_backend();
+
+  cout << "In communicate_with_backend :" << " file name :" << file_name << endl;
+  char toSend[BUFF_SIZE];
+  bzero(toSend,BUFF_SIZE);
+  sprintf(toSend,"%d %d %s %s",choice,size,username,file_name);
+  cout << "toSend:" << toSend << endl;
+  send(sockfd,toSend,strlen(toSend),0);
+  char feedback_from_backend[10]; 
+  memset(&feedback_from_backend,0,sizeof(feedback_from_backend));
+  int nbytes = recv(sockfd,feedback_from_backend,sizeof feedback_from_backend,0);
+  cout << "feedback from backend:" << feedback_from_backend << endl;
+  int received_feedback=0;
+  if(nbytes <= 0)
+    cout << "server did not receive feedback from backend\n";
+  else{
+    received_feedback = atoi(feedback_from_backend);
+    return sockfd;
+  }
+
+}
+
+
+
+
+
+
 void *send_file_to_backend(void* arguments){
 
-	cout<<"inside send_file_to_backend"<<endl;
+	cout<<"inside send_file_to_backend\n"<<endl;
   	struct backendArgs *args = (struct backendArgs *)arguments;
 	
   
-  int socket = connect_to_backend();
-  char toSend[BUFFER_SIZE];
-  bzero(toSend,BUFFER_SIZE);
-  string fname = string(args->filename);
+  
+  char toSend[BUFF_SIZE];
+  bzero(toSend,BUFF_SIZE);
+  char file_name[50];
+
+  memcpy(file_name,args->filename,sizeof(args->filename));
   string username = string(args->userid);
   
-  char fname1[50] ;
-  fname.copy(fname1,sizeof(fname),0);
-  char username1[50];
-  username.copy(username1,sizeof(username),0);
+  
   int choice = 1;
   int filesize = args->filesize;
   
-  int received_feedback=communicate_with_backend(choice,fname,filesize,username);
+  cout << "send_file_to_backend: file name " << file_name << endl;
   
-  if(received_feedback)
-  {
-    string fileLocation = args->filename;
-
+  int socket=communicate_with_backend(choice,file_name,filesize,username.c_str());
+ 
+  string fileLocation = args->filename;
+  cout << "filelocation: " << fileLocation << endl;
   FILE *sendFile = NULL;
 
   sendFile = fopen(fileLocation.c_str(),"r");
@@ -305,8 +337,8 @@ void *send_file_to_backend(void* arguments){
 
   int sentData=0;
                     //----buffer chunk to create the file in chunk.
-  char chunk[BUFFER_SIZE];
-  bzero(chunk,BUFFER_SIZE);
+  char chunk[BUFF_SIZE];
+  bzero(chunk,BUFF_SIZE);
   //memset(&chunk,0,sizeof(chunk));
   int len;
   
@@ -325,7 +357,7 @@ void *send_file_to_backend(void* arguments){
   fclose(sendFile);
   close(socket);
   pthread_exit(NULL);
-  }
+  
   
   
 
@@ -334,35 +366,35 @@ void *send_file_to_backend(void* arguments){
 
 void *receive_file_from_backend(void* arguments)
 {
+
+  cout << "In receive file from backend" << endl;
   struct backendArgs *args = (struct backendArgs *)arguments;
-  int socket = connect_to_backend();
-  char toSend[BUFFER_SIZE];
-  bzero(toSend,BUFFER_SIZE);
-  string fname = string(args->filename);
-  string username = string(args->userid);
   
-  char fname1[50] ;
-  fname.copy(fname1,sizeof(fname),0);
-  char username1[50];
-  username.copy(username1,sizeof(username),0);
-  int choice = 1;
+  char toSend[BUFF_SIZE];
+  bzero(toSend,BUFF_SIZE);
+  char file_name[50];
+
+  memcpy(file_name,args->filename,sizeof(args->filename));
+  string username = string(args->userid);
+  int n;
+ 
+  int choice = 2;
   int filesize = args->filesize;
   
-  int received_feedback=communicate_with_backend(choice,fname,filesize,username);
-  if(received_feedback)
-  {
-    string fileLocation = args->filename;
+  int socket=communicate_with_backend(choice,file_name,filesize,username.c_str());
+  
+  string fileLocation = args->filename;
 
-    FILE *receivedFile = NULL;
+  FILE *receivedFile = NULL;
 
-    receivedFile = fopen(fileLocation.c_str(),"w");
+  receivedFile = fopen(fileLocation.c_str(),"w");
     if(!receivedFile)
       fprintf(stderr, "Error fopen ----> %s", strerror(errno));
 
   int receivedData=0;
                     //----buffer chunk to create the file in chunk.
-  char chunk[BUFFER_SIZE];
-  bzero(chunk,BUFFER_SIZE);
+  char chunk[BUFF_SIZE];
+  bzero(chunk,BUFF_SIZE);
   //memset(&chunk,0,sizeof(chunk));
   int len;
 
@@ -371,7 +403,7 @@ void *receive_file_from_backend(void* arguments)
         {       
                 receivedData+=len;
               
-                if(writtentofile= fwrite(chunk, 1,len, receivedFile)<0){
+                if(n= fwrite(chunk, 1,len, receivedFile)<0){
                   error("cant write to file");
                 }
                 
@@ -386,138 +418,179 @@ void *receive_file_from_backend(void* arguments)
  
       
         }
+  char response[20];
+  bzero(response,20);
+  n = read(socket,response,20);
+  cout<<"response from backendserver after sending all chunks to server end is "<<response<<endl;
+  cout<<"Total bytes received to server is = "<<receivedData;
+  fclose(receivedFile);
+  close(socket);
+  pthread_exit(NULL);
 
-    fclose(receivedFile);
-    close(socket); 
-
-  }
+  
 
 }
 
+void handle_backend(char file_name[50],string userId,long filesize,int choice)
+{
 
+  cout << "In handle_backend: file name " << file_name << endl;
+  pthread_t handle_backend;
+  
+  struct backendArgs *args;
+  args = (backendArgs *)malloc(sizeof(struct backendArgs));
+  
+  args->userid = userId;
+  
+  args->filesize = filesize;
+  
+  memcpy(args->filename,file_name,sizeof(args->filename));
+  
+  cout << "args filename: " << args->filename << endl;
 
-
-
-void receive_file_from_client(int sock,char file_name[50],string userId,long filesize){
-	cout<<"received filename to upload at server is:"<<file_name<<endl;
-	cout<<"inside receive_file_from_client function"<<endl;
- 	int f; 
- 	ssize_t sent_bytes, rcvd_bytes, rcvd_file_size;
- 	int recv_count; 
- 	char recv_str[BUFFER_SIZE]; 
-  	recv_count = 0; /* number of recv() calls required to receive the file */
-  	rcvd_file_size = 0; /* size of received file */
-  	
- 
- 	if ( (f = open(file_name, O_WRONLY|O_CREAT, 0644)) < 0 )
- 	{
- 	error("error creating file");
- 	}
- 
- 	cout<<"test after opening file in write mode"<<endl;
- 	while ((rcvd_bytes = recv(sock, recv_str, BUFFER_SIZE,0)) > 0){
- 		recv_count++;
- 		rcvd_file_size += rcvd_bytes;
-
- 		if (write(f, recv_str, rcvd_bytes) < 0 )
- 		{
- 			error("error writing to file");
- 		}  
- 		if(rcvd_file_size==filesize){
- 		int n = write(sock,"ack",3);
- 		if (n < 0) error("ERROR writing to socket");
- 		break;
- 		}
- 
- 	}  // while close
- 	close(f); /* close file*/
-	cout<<"Client Received:"<<rcvd_file_size<<" bytes in "<<recv_count<<" recv(s)\n"<<endl; 
-
-
-	cout<<"hello"<<endl;
-	pthread_t handle_backend;
-	cout<<"hello"<<endl;
-	struct backendArgs *args;
-	args = (backendArgs *)malloc(sizeof(struct backendArgs));
-	cout<<"hello"<<endl;
-	args->userid = userId;
-	cout<<"filesize = "<<filesize;
-	args->filesize = filesize;
-	cout<<"args->filesize = "<<args->filesize<<endl;
-	cout<<"args->userid = "<<args->userid<<endl;
-	memcpy(args->filename,file_name,sizeof(args->filename));
-	cout<<"args->filename="<<args->filename<<endl;
-
-	cout<<"inserted args in new thread"<<endl;  
-	if (pthread_create(&handle_backend, NULL, send_file_to_backend,args) != 0) {
+  cout << "choice: " << choice << endl;
+  if(choice == 1)
+    {
+      if (pthread_create(&handle_backend, NULL, send_file_to_backend,args) != 0)
+      {
         error("Could not create a worker thread");
         free(args);
+      }
     }
-	cout<<"hello"<<endl;
-	pthread_join(handle_backend,NULL);   
-	cout<<"going back from receive_file_from_client"<<endl;
+  else if(choice == 2)
+     { cout << "Inside else if" << endl; 
 
-}  // receive_file_from_client() closed
+      if (pthread_create(&handle_backend, NULL, receive_file_from_backend,args) != 0)
+      {
+        error("Could not create a worker thread");
+        free(args);
+      }
+    }
+  pthread_join(handle_backend,NULL);   
+
+}
+
+void send_file(int socket,char file_name[50],string userId,long filesize)
+{
+
+    cout << "In send_file\n";
+    string fileLocation = string(file_name);
+
+    FILE *sendFile = NULL;
+
+    sendFile = fopen(fileLocation.c_str(),"r");
+
+    if(!sendFile)
+        fprintf(stderr, "Error fopen ----> %s", strerror(errno));
+
+    int sentData=0;
+                    //----buffer chunk to create the file in chunk.
+    char chunk[BUFF_SIZE];
+    memset(&chunk,0,sizeof(chunk));
+    int len;
+                     //-------reading the requested file in chunk.
+    while ((len=fread(chunk,1,sizeof chunk, sendFile)) > 0) 
+        {  
+            len=send(socket,chunk,len,0);
+                        
+            sentData+=len;
+            if(sentData == filesize){
+                    break;
+                }
+
+        }
+    fclose(sendFile);
+   
+  
+}
+
+int receive_file(int socket,char file_name[50],string userId,long filesize)
+{
+	
+ 	  string fileLocation = string(file_name);
+    
+    cout << "file name: " << file_name << "userId: " << userId << "fileLocation:" << fileLocation << endl;
+
+ 	  FILE *receivedFile = NULL;
+    
+    receivedFile = fopen(fileLocation.c_str(),"w");
+    if(!receivedFile)
+        fprintf(stderr, "Error fopen ----> %s", strerror(errno));
+    
+    int receivedData=0;
+                    //----buffer chunk to create the file in chunk.
+    char chunk[BUFF_SIZE];
+    memset(&chunk,0,sizeof(chunk));
+    int len;
+ 
+
+     while ((len = recv(socket, chunk, BUFF_SIZE, 0)) > 0)
+
+        {       
+                receivedData+=len;
+                
+                if(int n = fwrite(chunk, 1,len, receivedFile)<0){
+                  error("cant write to file");
+                }
+                
+                 if(receivedData==filesize)
+                  {
+                  
+
+                      int n = write(socket,"ack",3);
+                      if (n < 0) error("ERROR writing to socket");
+                      break;
+                  }
+ 
+      
+        }
 
 
-void session_verify_before_receiving_from_client(int newsockfd, char buffer[BUFFER_SIZE],char clientip[50]){
-	cout<<"inside uploaduserfiles()"<<endl;
+      fclose(receivedFile);
+      return 1;
+	
+}  
+
+
+void receive_from_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50]){
+	
 	char filename[50];
 	int n;
 	int initial;
 	int sid;
 	long int filesize;
-    sscanf(buffer,"%d %d %s %ld",&initial,&sid,filename,&filesize);
-  	cout<<"received filename to upload at server is:"<<filename<<endl;
-  	cout<<"filesize is: "<<filesize<<endl;
+  sscanf(buffer,"%d %d %s %ld",&initial,&sid,filename,&filesize);
+  cout << "In receive_from_client: filename " << filename << endl;	
   	int sessionactiveflag=checksessionactive(clientip,sid);
-  	bzero(buffer,BUFFER_SIZE);
-
-  	//if session active then call receive_file_from_client
-  	if(sessionactiveflag==1){
+  	bzero(buffer,BUFF_SIZE);
+    if(sessionactiveflag==1)
+    {
   		printf("session match found at server\n");
   		sprintf(buffer,"%d",sessionactiveflag);
   		n = write(newsockfd,buffer,strlen(buffer));
-  		if(n<0){
-  			error("Error writing to socket");
-  		}
 
-    cout<<"after for loop"<<endl;
-    map <char *, int> :: iterator itr;
-  	cout << "\nThe map ip_map_sessionid is : \n";
-  	cout << "\tKEY\tELEMENT\n";
-  	for (itr = ip_map_sessionid.begin(); itr != ip_map_sessionid.end(); ++itr)
-  	{
-        cout  <<  '\t' << itr->first 
-              <<  '\t' << itr->second << '\n';
-  	}
-  	cout<<endl;
-    map <char *, string > :: iterator itr1;
-  	cout << "\nThe map ip_map_uname is : \n";
-  	cout << "\tKEY\tELEMENT\n";
-    for (itr1 = ip_map_uname.begin(); itr1 != ip_map_uname.end(); ++itr1)
-    {
-        cout  <<  '\t' << itr1->first 
-              <<  '\t' << itr1->second << '\n';
-    }
-
-    cout << endl;
-
-    cout<<"ip_map_sessionid"<<ip_map_sessionid[clientip]<<endl;
-
-    cout<<"ip_map_uname[clientip]"<<ip_map_uname[clientip]<<endl;
+  		if(n<0)
+        error("Error writing to socket");
+  	
     string username = ip_map_uname[clientip];
-    cout << "receive_file_from_client():"<< username << endl;
+    
     string fileName = string(username) + "_" + string(filename);
-  	cout<<"calling receive_file_from_client"<<endl;
+  
 
 
-    receive_file_from_client(newsockfd,(char *)fileName.c_str(),username,filesize);
-  	cout<<"completed calling receive_file_from_client"<<endl;
+    int status = receive_file(newsockfd,(char *)fileName.c_str(),username,filesize);
+    
+    if(status)
+      handle_backend((char *)fileName.c_str(),username,filesize,1);
+    else
+      printf("could not receive file from client\n");
+
+  	
   }
 
   // else notify client to login first
-  else{
+  else
+  {
   	printf("session match not found at server\n");
   	sprintf(buffer,"%d",sessionactiveflag);
   	n = write(newsockfd,buffer,strlen(buffer));
@@ -526,12 +599,81 @@ void session_verify_before_receiving_from_client(int newsockfd, char buffer[BUFF
   	}
 
   }
-  cout<<"completed calling session_verify_before_receiving_from_client"<<endl;
+  
 
 }
 
+
+void send_to_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50])
+{
+  
+  cout<<"inside send to client"<<endl;
+  char filename[50];
+  int n;
+  int initial;  // 4 sid filename
+  int sid;
+  long int filesize;
+  sscanf(buffer,"%d %d %s",&initial,&sid,filename);
+  cout<<"received filename at server to send to client is:"<<filename<<endl;
+  int sessionactiveflag=checksessionactive(clientip,sid);
+  bzero(buffer,BUFF_SIZE);
+  string username = ip_map_uname[clientip];
+  cout << "sending file to client:"<< username << endl;
+  string fileName = string(username) + "_" + string(filename);
+    
+  if(sessionactiveflag==1){
+    printf("session match found at server\n");
+
+    
+    int is_file_available = 1;
+    //is_file_available = verify_from_user_filestat(filename,username);
+
+    if (is_file_available)
+      {
+
+        handle_backend((char *)fileName.c_str(),username,filesize,2);
+
+
+        sprintf(buffer,"%d %ld",sessionactiveflag,filesize);
+        n = write(newsockfd,buffer,strlen(buffer));
+        if(n<0){
+            error("Error writing to socket");
+              }
+      send_file(newsockfd,(char *)fileName.c_str(),username,filesize);
+      cout << "sent complete file to client\n";
+      bzero(buffer,BUFF_SIZE);
+      n = read(newsockfd,buffer,3);
+      cout << "message from client : " << buffer << endl;
+      
+        
+      }
+    
+
+      
+    } 
+    
+    else{
+      long filesize = 0;
+      sprintf(buffer,"%d %ld",sessionactiveflag,filesize);
+      n = write(newsockfd,buffer,strlen(buffer));
+      if(n<0){
+        error("Error writing to socket");
+      }
+    } // else close
+
+
+} 
+
+
+
+
+
+
+
+
+
 // clear_session 
-void clear_session(int newsockfd, char buff[BUFFER_SIZE], char clientip[50]){
+void clear_session(int newsockfd, char buff[BUFF_SIZE], char clientip[50]){
 	int session_cleared=0;
 	int client_sessionid,choice;
 	sscanf(buff,"%d %d",&choice,&client_sessionid);
@@ -542,8 +684,8 @@ void clear_session(int newsockfd, char buff[BUFFER_SIZE], char clientip[50]){
 	 		ip_map_sessionid.erase (clientip);
 		}
 	}
-	char buffer[BUFFER_SIZE];
-	bzero(buffer,BUFFER_SIZE);
+	char buffer[BUFF_SIZE];
+	bzero(buffer,BUFF_SIZE);
 	sprintf(buffer,"%d",session_cleared);
 	cout<<"logout():value before witing buffer is:"<<buffer;
 	int n = write(newsockfd,buffer,strlen(buffer));
@@ -553,95 +695,14 @@ void clear_session(int newsockfd, char buff[BUFFER_SIZE], char clientip[50]){
 }
 
 
-int communicate_with_backend(int choice,char* file_name,int size,char* username)
-
-{
-  int sockfd = connect_to_backend();
-
-
-  char toSend[BUFFER_SIZE];
-  bzero(toSend,BUFFER_SIZE);
-  sprintf(toSend,"%d %ld %s %s",choice,size,username,file_name);
-  cout << "toSend:" << toSend << endl;
-  send(sockfd,toSend,strlen(toSend),0);
-  char feedback_from_backend[10]; 
-  memset(&feedback_from_backend,0,sizeof(feedback_from_backend));
-  int nbytes = recv(socket,feedback_from_backend,sizeof feedback_from_backend,0);
-  cout << "feedback from backend:" << feedback_from_backend << endl;
-  int received_feedback=0;
-  if(nbytes <= 0)
-    cout << "server did not receive feedback from backend\n";
-  else
-    received_feedback = atoi(feedback_from_backend);
-    return received_feedback;
-
-
-}
 
 
 
 
 
-void session_verify_before_sending_to_client(int newsockfd, char buffer[BUFFER_SIZE],char clientip[50]){
-	cout<<"inside session_verify_before_sending_to_client()"<<endl;
-	char filename[50];
-	int n;
-	int initial;  // 4 sid filename
-	int sid;
-	long int filesize;
-    	sscanf(buffer,"%d %d %s",&initial,&sid,filename);
-  	cout<<"received filename at server to send to client is:"<<filename<<endl;
-  	int sessionactiveflag=checksessionactive(clientip,sid);
-  	bzero(buffer,BUFFER_SIZE);
-
-  	//if session active then make a thread to backed to send the requested file to client.
-  	if(sessionactiveflag==1){
-  		printf("session match found at server\n");
-
-  		// make a call to backend server with message id "2 filename". This function will return the filesize 
-  		// which will send back to client and in turn receive an ack for filesize from client. then we will send file to client
-
-  		//long filesize = some function call ()
-		int is_file_available = 0;
-		is_file_available = verify_from_user_filestat(filename,userid);
-
-		if (is_file_available)
-			{
-
-        receive_file_from_backend();
-
-				
-			}
-		
-
-  		sprintf(buffer,"%d %ld",sessionactiveflag,filesize);
-  		n = write(newsockfd,buffer,strlen(buffer));
-  		if(n<0){
-  			error("Error writing to socket");
-  		}
-  		// receive filesize response from client
-  		bzero(buffer,BUFFER_SIZE);
-  		n = read(newsockfd,buffer,BUFFER_SIZE);
-  		cout<<"ack from client after sending file is:"<<buffer<<endl;
-  		if(!strcmp(buffer,"filesize_received_ack")){
-  			//means client successfully received filesize. now start sending file to client.
-  			// call some fuinction to send file received from backend server to client.
-  			// send_file_to_client_after_receiving_file_from_backend();
-  		}
-  	} // if close
-
-  	// else means client is not logged in to server. make him login first.
-  	else{
-  		long filesize = 0;
-  		sprintf(buffer,"%d %ld",sessionactiveflag,filesize);
-  		n = write(newsockfd,buffer,strlen(buffer));
-  		if(n<0){
-  			error("Error writing to socket");
-  		}
-  	} // else close
 
 
-} //session_verify_before_sending_to_client()  close
+
 
 
 
@@ -688,8 +749,8 @@ void *service_single_client(void *args){
 
 
 	while(1){
-		char buffer[BUFFER_SIZE];
-		bzero(buffer,BUFFER_SIZE);
+		char buffer[BUFF_SIZE];
+		bzero(buffer,BUFF_SIZE);
 		int n;
   		n = read(newsockfd,buffer,256);
   		if(n<0){
@@ -713,7 +774,7 @@ void *service_single_client(void *args){
     		}
 			case 3:
 			{
-				session_verify_before_receiving_from_client(newsockfd,buffer,ipstr);
+				receive_from_client(newsockfd,buffer,ipstr);
 				break;
 			}
 			case 4:
@@ -722,7 +783,7 @@ void *service_single_client(void *args){
 			}
 			case 5:
 			{
-				session_verify_before_sending_to_client(newsockfd,buffer,ipstr);
+				send_to_client(newsockfd,buffer,ipstr);
 				break;
 			}
 			case 10:

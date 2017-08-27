@@ -225,21 +225,23 @@ int download(int sockfd){
       error("error creating file");
  
     }
-    cout<<"successfully opened file for witing."<<endl;
-    cout<<"Receiving data from server..";
+    cout<<"successfully opened file for writing."<<endl;
+
+    cout<<"Receiving data from server.."<<endl;
     //cout<<"test after opening file in write mode"<<endl;
     while ((rcvd_bytes = recv(sockfd, recv_str, BUFFER_SIZE,0)) > 0){
-      cout<<".";
+      
       recv_count++;
       rcvd_file_size += rcvd_bytes;
 
       if (write(f, recv_str, rcvd_bytes) < 0 ){
          error("error writing to file");
       }  
-      if(rcvd_file_size==download_filesize)
+      if(rcvd_file_size == download_filesize)
       {
+            cout << "in break condition" << rcvd_file_size << " " << download_filesize << endl;
           int n = write(sockfd,"ack",3);
-          if (n < 0) error("ERROR writing to socket");
+          if (n < 0) {error("ERROR writing to socket");}
 
           break;
       }
