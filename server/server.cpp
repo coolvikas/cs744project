@@ -272,9 +272,34 @@ int connect_to_backend(void)
 
 }
 
+int communicate_with_backend_to_receive(int choice,char* file_name,int size,const char* username)
+
+{
+  int sockfd = connect_to_backend();
+  cout<<"communicate_with_backend_to_receive() filesize before writing to buffer = "<<size<<endl;
+  cout << "In communicate_with_backend :" << " file name :" << file_name << endl;
+  char toSend[BUFF_SIZE];
+  bzero(toSend,BUFF_SIZE);
+  sprintf(toSend,"%d %d %s %s",choice,size,username,file_name);
+  cout << "toSend:" << toSend << endl;
+  send(sockfd,toSend,strlen(toSend),0);
+  /*
+  char feedback_from_backend[BUFF_SIZE]; 
+  memset(&feedback_from_backend,0,sizeof(feedback_from_backend));
+  int nbytes = recv(sockfd,feedback_from_backend,sizeof feedback_from_backend,0);
+  cout << "feedback from backend:" << feedback_from_backend << endl;
+  int received_feedback=0;
+  if(nbytes <= 0)
+    cout << "server did not receive feedback from backend\n";
+  else{
+    received_feedback = atoi(feedback_from_backend);
+    return sockfd;
+  }      */
+  return sockfd;      
+}
 
 
-int communicate_with_backend(int choice,char* file_name,int size,const char* username)
+int communicate_with_backend_to_send(int choice,char* file_name,int size,const char* username)
 
 {
   int sockfd = connect_to_backend();
@@ -285,7 +310,8 @@ int communicate_with_backend(int choice,char* file_name,int size,const char* use
   sprintf(toSend,"%d %d %s %s",choice,size,username,file_name);
   cout << "toSend:" << toSend << endl;
   send(sockfd,toSend,strlen(toSend),0);
-  char feedback_from_backend[10]; 
+  
+  char feedback_from_backend[BUFF_SIZE]; 
   memset(&feedback_from_backend,0,sizeof(feedback_from_backend));
   int nbytes = recv(sockfd,feedback_from_backend,sizeof feedback_from_backend,0);
   cout << "feedback from backend:" << feedback_from_backend << endl;
@@ -295,8 +321,7 @@ int communicate_with_backend(int choice,char* file_name,int size,const char* use
   else{
     received_feedback = atoi(feedback_from_backend);
     return sockfd;
-  }
-
+  }            
 }
 
 
@@ -314,6 +339,7 @@ void *send_file_to_backend(void* arguments){
   char toSend[BUFF_SIZE];
   bzero(toSend,BUFF_SIZE);
   char file_name[50];
+  bzero(file_name,sizeof file_name);
 
   memcpy(file_name,args->filename,sizeof(args->filename));
   string username = string(args->userid);
@@ -321,10 +347,11 @@ void *send_file_to_backend(void* arguments){
   
   int choice = 1;
   int filesize = args->filesize;
+
   
   cout << "send_file_to_backend: file name " << file_name << endl;
   
-  int socket=communicate_with_backend(choice,file_name,filesize,username.c_str());
+  int socket=communicate_with_backend_to_send(choice,file_name,filesize,username.c_str());
  
   string fileLocation = args->filename;
   cout << "filelocation: " << fileLocation << endl;
@@ -373,18 +400,30 @@ void *receive_file_from_backend(void* arguments)
   char toSend[BUFF_SIZE];
   bzero(toSend,BUFF_SIZE);
   char file_name[50];
+  bzero(file_name,sizeof(file_name));
 
-  memcpy(file_name,args->filename,sizeof(args->filename));
+  memcpy(file_name,args->filename,sizeof(file_name));
   string username = string(args->userid);
   int n;
  
   int choice = 2;
+
+  // this file size is not used 
+
   int filesize = args->filesize;
+  cout<<"receive_file_from_backend() filesize passed = "<<filesize<<endl;
   
-  int socket=communicate_with_backend(choice,file_name,filesize,username.c_str());
+  int socket=communicate_with_backend_to_receive(choice,file_name,filesize,username.c_str());
   
   string fileLocation = args->filename;
 
+  long received_file_size_from_backend;
+  char buffer[BUFF_SIZE];
+  bzero(buffer,BUFF_SIZE);
+  n = read(socket,buffer,BUFF_SIZE);
+  sscanf(buffer,"%ld",&received_file_size_from_backend);
+  cout<<"received_file_size_from_backend="<<received_file_size_from_backend<<endl;
+  n = write(socket,"filesize_received_ack",strlen("filesize_received_ack"));
   FILE *receivedFile = NULL;
 
   receivedFile = fopen(fileLocation.c_str(),"w");
@@ -407,9 +446,12 @@ void *receive_file_from_backend(void* arguments)
                   error("cant write to file");
                 }
                 
-                 if(receivedData==filesize)
+                 if(receivedData==received_file_size_from_backend)
                   {
                     cout << "file received completely\n";
+                    
+                    int n = write(socket,"ack",3);
+                    if (n < 0) error("ERROR writing to socket");
                     break;
                   }
 
@@ -418,11 +460,11 @@ void *receive_file_from_backend(void* arguments)
  
       
         }
-  char response[20];
+  /*char response[20];
   bzero(response,20);
   n = read(socket,response,20);
-  cout<<"response from backendserver after sending all chunks to server end is "<<response<<endl;
-  cout<<"Total bytes received to server is = "<<receivedData;
+  cout<<"response from backendserver after sending all chunks to server end is "<<response<<endl;  */
+  cout<<"Total bytes received to server is = "<<receivedData<<endl;
   fclose(receivedFile);
   close(socket);
   pthread_exit(NULL);
@@ -434,7 +476,7 @@ void *receive_file_from_backend(void* arguments)
 void handle_backend(char file_name[50],string userId,long filesize,int choice)
 {
 
-  cout << "In handle_backend: file name " << file_name << endl;
+  cout << "In handle_backend() file name = " << file_name << endl;
   pthread_t handle_backend;
   
   struct backendArgs *args;
@@ -470,7 +512,7 @@ void handle_backend(char file_name[50],string userId,long filesize,int choice)
 
 }
 
-void send_file(int socket,char file_name[50],string userId,long filesize)
+void send_file(int socket,char file_name[50],string userId)
 {
 
     cout << "In send_file\n";
@@ -487,18 +529,19 @@ void send_file(int socket,char file_name[50],string userId,long filesize)
                     //----buffer chunk to create the file in chunk.
     char chunk[BUFF_SIZE];
     memset(&chunk,0,sizeof(chunk));
-    int len;
+    int len=0;
                      //-------reading the requested file in chunk.
     while ((len=fread(chunk,1,sizeof chunk, sendFile)) > 0) 
         {  
             len=send(socket,chunk,len,0);
                         
             sentData+=len;
-            if(sentData == filesize){
+           /* if(sentData == filesize){
                     break;
-                }
+                }  */
 
         }
+    cout<<"server sent "<<sentData<<" bytes to client successfully !!"<<endl;
     fclose(sendFile);
    
   
@@ -559,8 +602,8 @@ void receive_from_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50]
 	int initial;
 	int sid;
 	long int filesize;
-  sscanf(buffer,"%d %d %s %ld",&initial,&sid,filename,&filesize);
-  cout << "In receive_from_client: filename " << filename << endl;	
+    sscanf(buffer,"%d %d %s %ld",&initial,&sid,filename,&filesize);
+    cout << "In receive_from_client: filename " << filename << endl;	
   	int sessionactiveflag=checksessionactive(clientip,sid);
   	bzero(buffer,BUFF_SIZE);
     if(sessionactiveflag==1)
@@ -609,10 +652,11 @@ void send_to_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50])
   
   cout<<"inside send to client"<<endl;
   char filename[50];
+  bzero(filename,sizeof(filename));
   int n;
   int initial;  // 4 sid filename
   int sid;
-  long int filesize;
+  long int filesize=0;
   sscanf(buffer,"%d %d %s",&initial,&sid,filename);
   cout<<"received filename at server to send to client is:"<<filename<<endl;
   int sessionactiveflag=checksessionactive(clientip,sid);
@@ -632,18 +676,28 @@ void send_to_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50])
       {
 
         handle_backend((char *)fileName.c_str(),username,filesize,2);
+        FILE *fptr1 = NULL;
+    	fptr1 = fopen(fileName.c_str(),"r");
+    	fseek(fptr1,0, SEEK_END);
+    	long file_len =(unsigned long)ftell(fptr1);
+    	printf("length of file is%ld\n",file_len);
+    	fseek(fptr1,0,SEEK_SET);
+    	fclose(fptr1);
 
-
-        sprintf(buffer,"%d %ld",sessionactiveflag,filesize);
+        sprintf(buffer,"%d %ld",sessionactiveflag,file_len);
         n = write(newsockfd,buffer,strlen(buffer));
         if(n<0){
             error("Error writing to socket");
               }
-      send_file(newsockfd,(char *)fileName.c_str(),username,filesize);
-      cout << "sent complete file to client\n";
-      bzero(buffer,BUFF_SIZE);
-      n = read(newsockfd,buffer,3);
-      cout << "message from client : " << buffer << endl;
+
+        bzero(buffer,BUFF_SIZE);
+        n = read(newsockfd,buffer,BUFF_SIZE);
+        cout<<"Response from client after sending file size is:"<<buffer<<endl;
+      	send_file(newsockfd,(char *)fileName.c_str(),username);
+      	cout << "sent complete file to client\n";
+      	bzero(buffer,BUFF_SIZE);
+      	n = read(newsockfd,buffer,3);
+      	cout << "message from client : " << buffer << endl;
       
         
       }

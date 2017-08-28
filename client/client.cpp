@@ -112,7 +112,7 @@ int upload(int sockfd){
   fclose(fptr);
   FILE *fptr1;
   fptr1 = fopen(filename,"r");
-  fseek(fptr,0, SEEK_END);
+  fseek(fptr1,0, SEEK_END);
   unsigned long file_len =(unsigned long)ftell(fptr1);
   printf("length of file is%ld\n",file_len);
   fseek(fptr1,0,SEEK_SET);
@@ -206,7 +206,7 @@ int download(int sockfd){
     return -1 ;
   }
   else{
-    cout<<"Requested file is found at server !!"<<endl;
+    cout<<"Requested file is found at server !! with size ="<<download_filesize<<endl;
     // file match is found on server and filesize is received so ack server that client is ready to download file.
     int n = write(sockfd,"filesize_received_ack",21);
     if(n<0){

@@ -154,8 +154,27 @@ void *accept_clients(void *args)
 void sendFile(char* dirName,char* fileName,int socket,long filesize)
 {
     string fileLocation = string(dirName) + "/" + string(fileName);
+    
+    // to know file size and send it to server
+    cout<<"inside sendFile()"<<endl;
+    FILE *fptr1 = NULL;
+    fptr1 = fopen(fileLocation.c_str(),"r");
+    fseek(fptr1,0, SEEK_END);
+    long file_len =(unsigned long)ftell(fptr1);
+    printf("length of file is%ld\n",file_len);
+    fseek(fptr1,0,SEEK_SET);
+    fclose(fptr1);
+    char buffer[BUFF_SIZE];
+    bzero(buffer,BUFF_SIZE);
+    sprintf(buffer,"%ld",file_len);
+    int n = write(socket,buffer,BUFF_SIZE);
+    char file_size_response[BUFF_SIZE];
+    bzero(file_size_response,BUFF_SIZE);
+    n = read(socket,file_size_response,BUFF_SIZE);
+    cout<<"reponse from server after sending file size is: "<<file_size_response<<endl;
 
     FILE *sendFile = NULL;
+
 
     sendFile = fopen(fileLocation.c_str(),"r");
 
@@ -173,15 +192,20 @@ void sendFile(char* dirName,char* fileName,int socket,long filesize)
             len=send(socket,chunk,len,0);
                         
             sentData+=len;
-            if(sentData == filesize){
+           /* if(sentData == file_len ){
                     
 
                     int n = write(socket,"ack",3);
                     if (n < 0) error("ERROR writing to socket");
                     break;
-                }
+                }  */
 
         }
+    cout<<"Total bytes sent to server is = "<<sentData<<endl;   
+    char response[20];
+  	bzero(response,20);
+  	n = read(socket,response,20);
+  	cout<<"response from server after receiving all chunks is "<<response<<endl;
     fclose(sendFile);
     close(socket);
     pthread_exit(NULL);
@@ -191,6 +215,8 @@ void sendFile(char* dirName,char* fileName,int socket,long filesize)
 
 void receiveFile(char* dirName,char* fileName,int socket,long filesize)
 {
+
+	int n = write(socket,"backendserver_ready_to_receive",strlen("backendserver_ready_to_receive"));
     struct stat st = {0};
 
     if (stat(dirName, &st) == -1) 
@@ -285,7 +311,7 @@ void *service_single_client(void *args) {
                 perror("recv");
                  }
             }
-        else
+    /*    else
 
          {  int flag=1;
          	bzero(feedback,sizeof(feedback));
@@ -293,7 +319,7 @@ void *service_single_client(void *args) {
             nbytes = send(socket,feedback,strlen(feedback),0);
             if (nbytes != -1)
                 cout << "sent feedback " << feedback << endl;
-         }
+         }                                           */
         cout << "buff:" << buff <<endl;
        int command;
        char fileName[50];
