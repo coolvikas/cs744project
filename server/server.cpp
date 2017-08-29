@@ -282,7 +282,10 @@ int communicate_with_backend_to_receive(int choice,char* file_name,int size,cons
   bzero(toSend,BUFF_SIZE);
   sprintf(toSend,"%d %d %s %s",choice,size,username,file_name);
   cout << "toSend:" << toSend << endl;
-  send(sockfd,toSend,strlen(toSend),0);
+  int n = send(sockfd,toSend,strlen(toSend),0);
+  if (n<=0){
+  	cout<<"communicate_with_backend_to_receive() error wting to socket."<<endl;
+  }
   /*
   char feedback_from_backend[BUFF_SIZE]; 
   memset(&feedback_from_backend,0,sizeof(feedback_from_backend));
@@ -498,6 +501,7 @@ void handle_backend(char file_name[50],string userId,long filesize,int choice)
         error("Could not create a worker thread");
         free(args);
       }
+      pthread_join(handle_backend,NULL);
     }
   else if(choice == 2)
      { cout << "Inside else if" << endl; 
@@ -507,8 +511,10 @@ void handle_backend(char file_name[50],string userId,long filesize,int choice)
         error("Could not create a worker thread");
         free(args);
       }
+      pthread_join(handle_backend,NULL);
     }
-  pthread_join(handle_backend,NULL);   
+    free(args);
+     
 
 }
 
@@ -533,6 +539,7 @@ void send_file(int socket,char file_name[50],string userId)
                      //-------reading the requested file in chunk.
     while ((len=fread(chunk,1,sizeof chunk, sendFile)) > 0) 
         {  
+        	cout<<".";
             len=send(socket,chunk,len,0);
                         
             sentData+=len;
@@ -541,7 +548,7 @@ void send_file(int socket,char file_name[50],string userId)
                 }  */
 
         }
-    cout<<"server sent "<<sentData<<" bytes to client successfully !!"<<endl;
+    cout<<"Server sent "<<sentData<<" bytes to client successfully !!"<<endl;
     fclose(sendFile);
    
   
@@ -625,6 +632,7 @@ void receive_from_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50]
     
     if(status)
       handle_backend((char *)fileName.c_str(),username,filesize,1);
+
     else
       printf("could not receive file from client\n");
 
@@ -662,7 +670,7 @@ void send_to_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50])
   int sessionactiveflag=checksessionactive(clientip,sid);
   bzero(buffer,BUFF_SIZE);
   string username = ip_map_uname[clientip];
-  cout << "sending file to client:"<< username << endl;
+  cout << "Sending file to client:"<< username << endl;
   string fileName = string(username) + "_" + string(filename);
     
   if(sessionactiveflag==1){
@@ -719,13 +727,6 @@ void send_to_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50])
 } 
 
 
-
-
-
-
-
-
-
 // clear_session 
 void clear_session(int newsockfd, char buff[BUFF_SIZE], char clientip[50]){
 	int session_cleared=0;
@@ -748,9 +749,100 @@ void clear_session(int newsockfd, char buff[BUFF_SIZE], char clientip[50]){
     }
 }
 
+//this function gets the list of files available with backend for a particular client and stores them temporarily here.
+void get_filesystem_from_backend(int newsockfd,char buffer[BUFF_SIZE],char clientip[50]){
+	int choice,sessionid;
+	cout<<"inside get_filesystem_from_backend()"<<endl;
+	sscanf(buffer,"%d %d",&choice,&sessionid);
+	cout<<"sessionid = "<<sessionid<<endl;
+	if(checksessionactive(clientip,sessionid)){  // means session is active
+		cout<<"Session match found at server."<<endl;
+		char fname[50];
+		string dirname = "metadata";
+		int choice =1;
+		memcpy(fname,ip_map_uname[clientip].c_str(),sizeof(fname));
+		if( access( fname, F_OK ) != -1 ) {  //access return value is 0 if the access is permitted, and -1 otherwise.
+    			// file exists locally send to client and display
+			FILE *fptr1 = NULL;
+    		fptr1 = fopen(fname,"r");
+    		fseek(fptr1,0, SEEK_END);
+    		long file_len =(unsigned long)ftell(fptr1);
+    		printf("length of file is%ld\n",file_len);
+    		fseek(fptr1,0,SEEK_SET);
+    		fclose(fptr1);
+
+    		char buffer[BUFF_SIZE];
+    		bzero(buffer,BUFF_SIZE);
+    		sprintf(buffer,"%d %ld",choice,file_len);
+    		int n = write(newsockfd,buffer,strlen(buffer));
+        	if(n<0){
+            	error("Error writing to socket");
+            }
+
+        	bzero(buffer,BUFF_SIZE);
+        	n = read(newsockfd,buffer,BUFF_SIZE);
+        	cout<<"Response from client after sending file size is:"<<buffer<<endl;
+
+			send_file(newsockfd,fname,fname);
+			cout << "sent complete file to client\n";
+      		bzero(buffer,BUFF_SIZE);
+      		n = read(newsockfd,buffer,3);
+      		cout << "message from client : " << buffer << endl;
+      		return;
 
 
+		} 		
+		else {
+			cout<<"Files does not exists calling handle_backend()"<<endl;
+    		// file doesn't exist  make connection to backend to receive file
+			handle_backend(fname,dirname,0,2);
+			cout<<"in get_filesystem_from_backend after handle_backend() call completed"<<endl;
+			char buffer[BUFF_SIZE];
+			bzero(buffer,BUFF_SIZE);
+			FILE *fptr1 = NULL;
+    		fptr1 = fopen(ip_map_uname[clientip].c_str(),"r");
+    		fseek(fptr1,0, SEEK_END);
+    		long file_len =(unsigned long)ftell(fptr1);
+    		printf("length of file is%ld\n",file_len);
+    		fseek(fptr1,0,SEEK_SET);
+    		fclose(fptr1);
 
+        	sprintf(buffer,"%d %ld",choice,file_len);
+        	int n = write(newsockfd,buffer,strlen(buffer));
+        	if(n<0){
+            	error("Error writing to socket");
+              }
+
+        	bzero(buffer,BUFF_SIZE);
+        	n = read(newsockfd,buffer,sizeof (buffer));
+        	cout<<"Response from client after sending file size is:"<<buffer<<endl;
+      		send_file(newsockfd,fname,ip_map_uname[clientip].c_str());
+      		cout << "sent complete file to client\n";
+      		bzero(buffer,BUFF_SIZE);
+      		n = read(newsockfd,buffer,3);
+      		cout << "message from client : " << buffer << endl;
+      		return;
+
+		}
+
+
+	}  // if closes
+	else{
+		int response = 0;
+		char *responsebuffer = NULL;
+		char buffer[BUFF_SIZE];
+		bzero(buffer,BUFF_SIZE);
+		sprintf(buffer,"%d %s",response,responsebuffer);
+		int n =write(newsockfd,buffer,strlen(buffer));
+		if(n<0){
+			cout<<"get_filesystem_from_backend():Error writing to socket"<<endl;
+		}
+
+	}  // else closes
+	return;
+
+	
+} // get_filesystem() closed
 
 
 
@@ -833,7 +925,8 @@ void *service_single_client(void *args){
 			}
 			case 4:
 			{
-
+				get_filesystem_from_backend(newsockfd,buffer,ipstr);
+				break;
 			}
 			case 5:
 			{

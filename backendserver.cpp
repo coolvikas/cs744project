@@ -221,9 +221,10 @@ void receiveFile(char* dirName,char* fileName,int socket,long filesize)
 
     if (stat(dirName, &st) == -1) 
         mkdir(dirName, 0700);
+    if (stat("metadata", &st) == -1) 
+        mkdir("metadata", 0700);
     cout << filesize << endl;
     string fileLocation = string(dirName) + "/" + string(fileName);
-
     FILE *receivedFile = NULL;
     ssize_t len,writtentofile;
     long rcvd_file_size=0;
@@ -254,6 +255,24 @@ void receiveFile(char* dirName,char* fileName,int socket,long filesize)
                 	// if revd file size == filesize it means we received complete file.
                  if(rcvd_file_size==filesize){
                  	cout<<"in if condition rcvd_file_size= "<<rcvd_file_size<<endl<<"filesize="<<filesize<<endl;
+                 	cout<<"writing metadata"<<endl;
+
+                 	// write the filename to metadata/uname.txt
+                 	char *filename=NULL;
+                 	filename = strtok(fileName, "_");
+    				filename = strtok(NULL, "_");                 	
+                 	string metadata = string("metadata") + "/" + string(dirName);
+                 	char* filesizeBuffer = (char *)malloc(sizeof(filesize));
+					sprintf(filesizeBuffer,"%ld",filesize);
+                 	FILE *metafile = fopen(metadata.c_str(),"a");
+    				char ch[] = "\n";
+    				char empty[] = " ";
+    				fwrite(filename,strlen(filename),1,metafile); // EACH ELEMENT IS OF SIZE 1 BYTE TO BE WRITTEN AND THERE ARE SIZEOF(BUFFER) ELEMENTS
+    				fwrite(empty,strlen(empty),1,metafile);
+    				fprintf(metafile,"%s",filesizeBuffer);
+    				fwrite(ch,strlen(ch),1,metafile);
+    				fclose(metafile);
+    				cout<<"metadata written"<<endl;
 
  					int n = write(socket,"ack",3);
  					if (n < 0) error("ERROR writing to socket");

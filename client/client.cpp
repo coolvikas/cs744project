@@ -8,6 +8,7 @@
 #include <fcntl.h> /* O_WRONLY, O_CREAT */
 #include <unistd.h> /* close, write, read */
 #include <string.h>
+#include <signal.h>
 #include <iostream>
 #include <cmath>
 #include <stdlib.h> //for exit system call
@@ -20,6 +21,9 @@ void error(const char *msg){
   perror(msg);
   exit(0);
 }
+
+
+
 
 char* loginuser(){
   char *buffer=(char *)(malloc(sizeof(char)*BUFFER_SIZE));
@@ -149,27 +153,27 @@ int upload(int sockfd){
 
 //to logout the client from server and removes its session also.
 void logout(int sockfd){
-  char buffer1[BUFFER_SIZE];
-  bzero(buffer1,BUFFER_SIZE);
-  int choice = 10;
-  sprintf(buffer1,"%d %d",choice,sessionid);
-  int n = write(sockfd,buffer1,strlen(buffer1));
-  if(n<0){
-      error("ERROR writing to socket");
-  }
-  bzero(buffer1,BUFFER_SIZE);
-  n = read(sockfd,buffer1,BUFFER_SIZE);
-  if(n<0){
-      error("ERROR reading from socket");
-  }
-  int logout_response;
-  sscanf(buffer1,"%d %d",&logout_response,&sessionid);
-  if(logout_response==1){
-    cout<<"User successfully logged out from system."<<endl;
-  }
-  else{
-    cout<<"U are not logged in."<<endl;
-  }
+    char buffer1[BUFFER_SIZE];
+    bzero(buffer1,BUFFER_SIZE);
+    int choice = 10;
+    sprintf(buffer1,"%d %d",choice,sessionid);
+    int n = write(sockfd,buffer1,strlen(buffer1));
+    if(n<0){
+          error("ERROR writing to socket");
+    }
+    bzero(buffer1,BUFFER_SIZE);
+    n = read(sockfd,buffer1,BUFFER_SIZE);
+    if(n<0){
+          error("ERROR reading from socket");
+    }
+    int logout_response;
+    sscanf(buffer1,"%d %d",&logout_response,&sessionid);
+    if(logout_response==1){
+        cout<<"User successfully logged out from system."<<endl;
+    }
+    else{
+        cout<<"U are not logged in."<<endl;
+    }
 
 }  // logout() closed
 
@@ -178,77 +182,77 @@ void logout(int sockfd){
 // then middle server will check if client is logged in or not via session id and give response.
 int download(int sockfd){
   //get filename from user
-  cout<<"inside download()"<<endl;
-  char filename[50];
-  cout<<"Enter filename : ";
-  cin>>filename;
-  //form a message request in downlaodbuffer
-  char download_buffer[BUFFER_SIZE];
-  bzero(download_buffer,BUFFER_SIZE);
-  int choice = 4;   // here 4 is code for downlaod
-  //enter choice sessionid filename in buffer and send to socket 
-  sprintf(download_buffer,"%d %d %s",choice,sessionid,filename);
-  int n = write(sockfd,download_buffer,strlen(download_buffer));
-  if(n<0){
-    cout<<"Error writing to download_buffer socket to server"<<endl;
-  }
-  bzero(download_buffer,BUFFER_SIZE);
-  // read response from server in download_buffer
-  n = read(sockfd,download_buffer,sizeof (download_buffer));
-  if(n<0){
-    cout<<"Error reading server response in download_buffer"<<endl;
-  }
-  int download_response;
-  long download_filesize;
-  sscanf(download_buffer,"%d %ld",&download_response,&download_filesize);
-  if(download_response==0){
-    cout<<"Sorry you are not logged in. Please login first."<<endl;
-    return -1 ;
-  }
-  else{
-    cout<<"Requested file is found at server !! with size ="<<download_filesize<<endl;
-    // file match is found on server and filesize is received so ack server that client is ready to download file.
-    int n = write(sockfd,"filesize_received_ack",21);
+    char filename[50];
+    bzero(filename,sizeof filename);
+    cout<<"Enter filename : ";
+    cin>>filename;
+    //form a message request in downlaodbuffer
+    char download_buffer[BUFFER_SIZE];
+    bzero(download_buffer,BUFFER_SIZE);
+    int choice = 5;   // here 4 is code for downlaod
+    //enter choice sessionid filename in buffer and send to socket 
+    sprintf(download_buffer,"%d %d %s",choice,sessionid,filename);
+    int n = write(sockfd,download_buffer,strlen(download_buffer));
     if(n<0){
-    cout<<"Error writing filesize_received_ack to server socket."<<endl;
+        cout<<"Error writing to download_buffer socket to server"<<endl;
     }
-    //open a file for writing
-    int f; //file descriptor
-    ssize_t rcvd_bytes, rcvd_file_size;
-    int recv_count; 
-    char recv_str[BUFFER_SIZE]; 
-    recv_count = 0; /* number of recv() calls required to receive the file */
-    rcvd_file_size = 0; /* size of received file */
- 
-    if ( (f = open(filename, O_WRONLY|O_CREAT, 0644)) < 0 )
-    {
-      error("error creating file");
- 
+    bzero(download_buffer,BUFFER_SIZE);
+    // read response from server in download_buffer
+    n = read(sockfd,download_buffer,sizeof (download_buffer));
+    if(n<0){
+        cout<<"Error reading server response in download_buffer"<<endl;
     }
-    cout<<"successfully opened file for writing."<<endl;
+    int download_response;
+    long download_filesize;
+    sscanf(download_buffer,"%d %ld",&download_response,&download_filesize);
+    if(download_response==0){
+        cout<<"Sorry you are not logged in. Please login first."<<endl;
+        return -1 ;
+    }
+    else{
+        cout<<"Requested file is found at server with size ="<<download_filesize<<" Bytes !!"<<endl;
+        // file match is found on server and filesize is received so ack server that client is ready to download file.
+        int n = write(sockfd,"filesize_received_ack",21);
+        if(n<0){
+        cout<<"Error writing filesize_received_ack to server socket."<<endl;
+        }
+        //open a file for writing
+        int f; //file descriptor
+        ssize_t rcvd_bytes, rcvd_file_size;
+        int recv_count; 
+        char recv_str[BUFFER_SIZE]; 
+        recv_count = 0; /* number of recv() calls required to receive the file */
+        rcvd_file_size = 0; /* size of received file */
+ 
+        if ( (f = open(filename, O_WRONLY|O_CREAT, 0644)) < 0 )
+        {
+            error("error creating file");
+        }
+        cout<<"successfully opened file for writing."<<endl;
 
-    cout<<"Receiving data from server.."<<endl;
-    //cout<<"test after opening file in write mode"<<endl;
-    while ((rcvd_bytes = recv(sockfd, recv_str, BUFFER_SIZE,0)) > 0){
+        cout<<"Receiving data from server.."<<endl;
+        //cout<<"test after opening file in write mode"<<endl;
+        while ((rcvd_bytes = recv(sockfd, recv_str, BUFFER_SIZE,0)) > 0){
+            cout<<".";
       
-      recv_count++;
-      rcvd_file_size += rcvd_bytes;
-
-      if (write(f, recv_str, rcvd_bytes) < 0 ){
-         error("error writing to file");
-      }  
-      if(rcvd_file_size == download_filesize)
-      {
-            cout << "in break condition" << rcvd_file_size << " " << download_filesize << endl;
-          int n = write(sockfd,"ack",3);
-          if (n < 0) {error("ERROR writing to socket");}
-
-          break;
-      }
-    }  //while close
-    close(f); /* close file*/
-    cout<<"Client Downloaded:"<<rcvd_file_size<<" bytes in "<<recv_count<<" recv(s)\n"<<endl;
-  }  // close else
+            recv_count++;
+            rcvd_file_size += rcvd_bytes;
+            if (write(f, recv_str, rcvd_bytes) < 0 ){
+             error("error writing to file");
+            }  
+            if(rcvd_file_size == download_filesize)
+            {
+                cout << "in break condition" << rcvd_file_size << " " << download_filesize << endl;
+                int n = write(sockfd,"ack",3);
+                if (n < 0) {
+                    error("ERROR writing to socket");
+                }
+                break;
+            }
+        }  //while close
+        close(f); /* close file*/
+        cout<<"Client Downloaded:"<<rcvd_file_size<<" bytes in "<<recv_count<<" recv(s)\n"<<endl;
+        }  // close else
 
 
 } // close download
@@ -257,30 +261,102 @@ int download(int sockfd){
 void get_filesystem_from_server (int sockfd)
 {
     int choice = 4;
-    char filestat[8] ;
-    memcpy(filestat,"filestat",sizeof(filestat));
     char buff[BUFFER_SIZE];
     memset(&buff,BUFFER_SIZE,0);
 
-    sprintf(buff,"%d %d %s",choice,sessionid,filestat); 
+    sprintf(buff,"%d %d",choice,sessionid); 
+    cout<<"buufer is"<<buff<<endl;
 
     int n = send(sockfd,buff,sizeof(buff),0);
     if (n < 0) error("get_filesystem_from_server:ERROR writing to socket");
 
-
-    char *response = NULL;
-    bzero(buff,BUFFER_SIZE);
-    n = read(sockfd,buff,BUFFER_SIZE);
+    char download_buffer[BUFFER_SIZE];
+    bzero(download_buffer,BUFFER_SIZE);
+    // read response from server in download_buffer
+    n = read(sockfd,download_buffer,sizeof (download_buffer));
     if(n<0){
-     error("get_filesystem_from_server:ERROR reading from socket"); 
+        cout<<"Error reading server response in download_buffer"<<endl;
     }
-    cout<<"File system of this client at Server is:"<<response<<endl;
+    cout<<"download_buffer received from server is :"<<download_buffer<<endl;
+    int download_response;
+    long download_filesize;
+    sscanf(download_buffer,"%d %ld",&download_response,&download_filesize);
+    if (download_response == 0){  // it means the client is not logged in yet.
+        cout<<"Please login first."<<endl;
+        return; 
+    }
+    else{    // client is logged in and ready to receive file from server.
+        cout<<"download_filesize="<<download_filesize<<endl;
+        char *filename = (char *)"metadata";
+        n = write(sockfd,"filesize_received_ack",21);
+        if(n<0){
+                cout<<"Error writing filesize_received_ack to server socket."<<endl;
+        }
+        //open a file for writing
+        int f; //file descriptor
+        ssize_t rcvd_bytes, rcvd_file_size;
+        int recv_count; 
+        char recv_str[BUFFER_SIZE]; 
+        recv_count = 0; /* number of recv() calls required to receive the file */
+        rcvd_file_size = 0; /* size of received file */
+ 
+        if ( (f = open(filename, O_WRONLY|O_CREAT, 0644)) < 0 )
+        {
+            error("error creating file");
+        }
+        cout<<"successfully opened file for writing."<<endl;
+
+        cout<<"Receiving data from server.."<<endl;
+        //cout<<"test after opening file in write mode"<<endl;
+        while ((rcvd_bytes = recv(sockfd, recv_str, BUFFER_SIZE,0)) > 0){
+            cout<<".";
+      
+            recv_count++;
+            rcvd_file_size += rcvd_bytes;
+            if (write(f, recv_str, rcvd_bytes) < 0 ){
+             error("error writing to file");
+            }  
+            if(rcvd_file_size == download_filesize)
+            {
+                cout << "in break condition" << rcvd_file_size << " " << download_filesize << endl;
+                int n = write(sockfd,"ack",3);
+                if (n < 0) {
+                    error("ERROR writing to socket");
+                }
+                break;
+            }
+        }  //while close
+        close(f); /* close file*/
+        cout<<"Client Downloaded:"<<rcvd_file_size<<" bytes in "<<recv_count<<" recv(s)\n"<<endl;
+    }
+
+    cout<<"get_filesystem_from_server() closed."<<endl;
+        
 
 }  // get_filesystem_from_server() closed
 
+void sigint_handler(int sig)
+{
+    write(0, "Ahhh! SIGINT!\n", 14);
+    //logout(sockfd);
+    //close(sockfd);
+}
 
 
 int main(int argc, char *argv[]){
+    void sigint_handler(int sig); /* prototype */
+    
+    struct sigaction sa;
+
+    sa.sa_handler = sigint_handler;
+    sa.sa_flags = 0; // or SA_RESTART
+    sigemptyset(&sa.sa_mask);
+
+    if (sigaction(SIGINT, &sa, NULL) == -1) {
+        perror("sigaction");
+        exit(1);
+    }
+
     int sockfd, portno ,n;
 
     struct sockaddr_in server_addr;
@@ -391,6 +467,7 @@ int main(int argc, char *argv[]){
         case 4:
         {
           get_filesystem_from_server(sockfd);
+          break;
         }
         case 5:
         {
