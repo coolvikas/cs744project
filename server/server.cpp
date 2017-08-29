@@ -149,7 +149,7 @@ void verifyuserlogin(int newsockfd,char buffer[BUFF_SIZE],char clientip[50]){
 //function to check if user is previously registered or not 
 
 int checkcredentials(char uname[20],char passwd[20]){
-	FILE *fptr;
+  FILE *fptr;
   char funame[20],fpasswd[20];
   char line[30];
   int flag =0;
@@ -169,9 +169,19 @@ int checkcredentials(char uname[20],char passwd[20]){
 	return flag;
 }
 
-void signupuser(int newsockfd,char buffer[BUFF_SIZE]){
+void signupuser(int newsockfd,char buffer[BUFF_SIZE],char clientip[50]){
 	
-  pt(2);
+ if (ip_map_sessionid.count(clientip)>0){
+
+ 	 memset(&buffer,sizeof(buffer),0);
+ 	 sprintf(buffer,"2");
+ 	int n = write(newsockfd,buffer,strlen(buffer));
+    if(n<0){
+      error("ERROR writing to socket");
+    }
+}
+
+else{
   char uname[20],passwd[20];
   int initial,n;
   sscanf(buffer,"%d %s %s",&initial,uname,passwd);
@@ -200,7 +210,7 @@ void signupuser(int newsockfd,char buffer[BUFF_SIZE]){
 
   }
   if(signupdone ==1 ){
-     bzero(buffer,0);
+     memset(&buffer,sizeof(buffer),0);
      sprintf(buffer,"1");
      n = write(newsockfd,buffer,strlen(buffer));
      if(n<0){
@@ -209,7 +219,7 @@ void signupuser(int newsockfd,char buffer[BUFF_SIZE]){
   }
 
   else{
-    bzero(buffer,0);
+    memset(&buffer,sizeof(buffer),0);
     sprintf(buffer,"0");
     n = write(newsockfd,buffer,strlen(buffer));
     if(n<0){
@@ -218,6 +228,8 @@ void signupuser(int newsockfd,char buffer[BUFF_SIZE]){
   }
 
   fclose(fptr);
+
+  }
  
 }
 
@@ -463,10 +475,7 @@ void *receive_file_from_backend(void* arguments)
  
       
         }
-  /*char response[20];
-  bzero(response,20);
-  n = read(socket,response,20);
-  cout<<"response from backendserver after sending all chunks to server end is "<<response<<endl;  */
+ 
   cout<<"Total bytes received to server is = "<<receivedData<<endl;
   fclose(receivedFile);
   close(socket);
@@ -860,11 +869,6 @@ void *service_single_client(void *args){
     wa = (struct clientArgs*) args;
     newsockfd = wa->socket;
 
-	    /* This tells the pthreads library that no other thread is going to
-       join() this thread. This means that, once this thread terminates,
-       its resources can be safely freed (instead of keeping them around
-       so they can be collected by another thread join()-ing this thread) */
-    pthread_detach(pthread_self());
   	fprintf(stderr, "Socket %d connected\n", newsockfd);
 	int n;
 
@@ -915,7 +919,7 @@ void *service_single_client(void *args){
 			case 2:
     		{
       			pt(1);
-      			signupuser(newsockfd,buffer);
+      			signupuser(newsockfd,buffer,ipstr);
       			break;
     		}
 			case 3:
@@ -996,9 +1000,10 @@ int main(int argc, char *argv[]){
   			//close(sockfd);
             pthread_exit(NULL);
         }
+       pthread_detach(client_thread);
 	} // while ends
 
 	close(sockfd);
-  pthread_exit(NULL);
+   
 	return 0;
 }

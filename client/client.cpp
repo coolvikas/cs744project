@@ -453,8 +453,13 @@ int main(int argc, char *argv[]){
             if(!strcmp(buffer,"1")){
               printf("Client is successfully signed up at server end. U may login now.\n");
             }
-            else{
+            else if(!strcmp(buffer,"0")){
+
               printf("Please try again signup with different username and password.\n" );
+            }
+            else if(!strcmp(buffer,"2")){
+
+              printf("U are already logged in\n" );
             }
             break;
         }
