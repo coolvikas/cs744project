@@ -153,6 +153,21 @@ int upload(int sockfd){
 
 //to logout the client from server and removes its session also.
 void logout(int sockfd){
+    //delete metadat file here
+    string filename = "metadata";
+    if( access( filename.c_str(), F_OK ) != -1 ){  // means metafile is present so delete it
+        cout<<"inside access to delete metadata file at client end."<<endl;
+        
+        if( remove( filename.c_str() ) != 0 ){
+            perror( "Error deleting file" );
+        }
+        else{
+            puts( "File successfully deleted" );
+        }   
+        
+    }  // access if closed
+
+
     char buffer1[BUFFER_SIZE];
     bzero(buffer1,BUFFER_SIZE);
     int choice = 10;
@@ -174,6 +189,8 @@ void logout(int sockfd){
     else{
         cout<<"U are not logged in."<<endl;
     }
+    close(sockfd);
+    exit(0);
 
 }  // logout() closed
 
@@ -289,7 +306,7 @@ void get_filesystem_from_server (int sockfd)
         cout<<"Please login first."<<endl;
         return; 
     }
-    else{    // client is logged in and ready to receive file from server.
+    else if(download_response==1){    // client is logged in and ready to receive file from server.
         cout<<"download_filesize="<<download_filesize<<endl;
         char *filename = (char *)"metadata";
         n = write(sockfd,"filesize_received_ack",21);
@@ -332,6 +349,11 @@ void get_filesystem_from_server (int sockfd)
         }  //while close
         close(f); /* close file*/
         cout<<"Client Downloaded:"<<rcvd_file_size<<" bytes in "<<recv_count<<" recv(s)\n"<<endl;
+    }
+    else if(download_response == 2){
+        
+        cout<<"NO files are currently uploaded on server."<<endl;
+        return;
     }
 
     cout<<"get_filesystem_from_server() closed."<<endl;
@@ -495,6 +517,6 @@ int main(int argc, char *argv[]){
       } // switch closed
 
     }while(choice!=0);
-
+  close(sockfd);
   return 0;
 }  // main() closed
