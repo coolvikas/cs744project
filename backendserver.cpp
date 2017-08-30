@@ -37,8 +37,13 @@ void error(const char *msg){
 
 
 void sendFile(char* dirName,char* fileName,int socket,long filesize)
-{
+{	
+
+	char buffer[BUFF_SIZE];
+    bzero(buffer,BUFF_SIZE);
     string fileLocation = string(dirName) + "/" + string(fileName);
+	if( access( fileLocation.c_str(), F_OK ) != -1 ) {    //means file exists
+    
     
     // to know file size and send it to server
     cout<<"inside sendFile()"<<endl;
@@ -49,8 +54,7 @@ void sendFile(char* dirName,char* fileName,int socket,long filesize)
     printf("length of file is%ld\n",file_len);
     fseek(fptr1,0,SEEK_SET);
     fclose(fptr1);
-    char buffer[BUFF_SIZE];
-    bzero(buffer,BUFF_SIZE);
+    
     sprintf(buffer,"%ld",file_len);
     int n = write(socket,buffer,BUFF_SIZE);
     char file_size_response[BUFF_SIZE];
@@ -93,6 +97,18 @@ void sendFile(char* dirName,char* fileName,int socket,long filesize)
   	cout<<"response from server after receiving all chunks is "<<response<<endl;
     fclose(sendFile);
     close(socket);
+}  // if ends
+
+else{     // file does not exist 
+	int filefound = 0;
+	sprintf(buffer,"%d",filefound);
+    int n = write(socket,buffer,BUFF_SIZE);
+    if(n<=0){
+    	error("sendFile() error writing to socket.");
+	}
+
+}
+
     pthread_exit(NULL);
 
 }
@@ -130,13 +146,13 @@ void receiveFile(char* dirName,char* fileName,int socket,long filesize)
 
     while ((len = recv(socket, chunk, BUFF_SIZE, 0)) > 0)
 
-        {       //cout<<"len="<<len;
+        {      
                 rcvd_file_size+=len;
-                //cout<<chunk<<" "<<len<<endl;
+                
                 if(writtentofile= fwrite(chunk, 1,len, receivedFile)<0){
                 	error("cant write to file");
                 }
-                //cout<<"writtentofile="<<writtentofile<<endl;
+                
                 	// if revd file size == filesize it means we received complete file.
                  if(rcvd_file_size==filesize){
                  	cout<<"in if condition rcvd_file_size= "<<rcvd_file_size<<endl<<"filesize="<<filesize<<endl;

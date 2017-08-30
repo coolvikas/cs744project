@@ -173,7 +173,7 @@ void signupuser(int newsockfd,char buffer[BUFF_SIZE],char clientip[50]){
 	
  if (ip_map_sessionid.count(clientip)>0){
 
- 	 memset(&buffer,sizeof(buffer),0);
+ 	  memset(&buffer,0,sizeof((int*) buffer));
  	 sprintf(buffer,"2");
  	int n = write(newsockfd,buffer,strlen(buffer));
     if(n<0){
@@ -210,7 +210,7 @@ else{
 
   }
   if(signupdone ==1 ){
-     memset(&buffer,sizeof(buffer),0);
+     memset(&buffer,0,sizeof((int*) buffer));
      sprintf(buffer,"1");
      n = write(newsockfd,buffer,strlen(buffer));
      if(n<0){
@@ -219,7 +219,7 @@ else{
   }
 
   else{
-    memset(&buffer,sizeof(buffer),0);
+    memset(&buffer,0,sizeof((int*) buffer));
     sprintf(buffer,"0");
     n = write(newsockfd,buffer,strlen(buffer));
     if(n<0){
@@ -348,63 +348,77 @@ void *send_file_to_backend(void* arguments){
 
 	cout<<"inside send_file_to_backend\n"<<endl;
   	struct backendArgs *args = (struct backendArgs *)arguments;
-	
-  
-  
-  char toSend[BUFF_SIZE];
-  bzero(toSend,BUFF_SIZE);
-  char file_name[50];
-  bzero(file_name,sizeof file_name);
+	char toSend[BUFF_SIZE];
+  	bzero(toSend,BUFF_SIZE);
+  	char file_name[50];
+  	bzero(file_name,sizeof file_name);
 
-  memcpy(file_name,args->filename,sizeof(args->filename));
-  string username = string(args->userid);
-  
-  
-  int choice = 1;
-  int filesize = args->filesize;
+  	memcpy(file_name,args->filename,sizeof(file_name));
+  	string username = string(args->userid);
+  	int filesize = args->filesize;
+  	// update file metadata of user presnet with server.
 
   
-  cout << "send_file_to_backend: file name " << file_name << endl;
+  	int choice = 1;
+  	
+	cout << "send_file_to_backend: file name " << file_name << endl;
   
-  int socket=communicate_with_backend_to_send(choice,file_name,filesize,username.c_str());
+  	int socket=communicate_with_backend_to_send(choice,file_name,filesize,username.c_str());
  
-  string fileLocation = args->filename;
-  cout << "filelocation: " << fileLocation << endl;
-  FILE *sendFile = NULL;
+  	string fileLocation = args->filename;
+  	cout << "filelocation: " << fileLocation << endl;
+  	FILE *sendFile = NULL;
+  	sendFile = fopen(fileLocation.c_str(),"r");
 
-  sendFile = fopen(fileLocation.c_str(),"r");
-
-  if(!sendFile)
-      fprintf(stderr, "Error fopen ----> %s", strerror(errno));
-
-  int sentData=0;
-                    //----buffer chunk to create the file in chunk.
-  char chunk[BUFF_SIZE];
-  bzero(chunk,BUFF_SIZE);
-  //memset(&chunk,0,sizeof(chunk));
-  int len;
+  	if(!sendFile)
+      	fprintf(stderr, "Error fopen ----> %s", strerror(errno));
+  	int sentData=0;
+    //----buffer chunk to create the file in chunk.
+  	char chunk[BUFF_SIZE];
+  	bzero(chunk,BUFF_SIZE);
+  	//memset(&chunk,0,sizeof(chunk));
+  	int len;
   
-  while ((len=fread(chunk,1,sizeof chunk, sendFile)) > 0) 
-        {  
-            len=send(socket,chunk,len,0);
-                        
-            sentData+=len;
-
-        }
-  char response[20];
-  bzero(response,20);
-  int n = read(socket,response,20);
-  cout<<"response from backendserver after sending all chunks at client end is "<<response<<endl;
-  cout<<"Total bytes sent to backenserver are = "<<sentData;
-  fclose(sendFile);
-  close(socket);
-  pthread_exit(NULL);
+  	while ((len=fread(chunk,1,sizeof chunk, sendFile)) > 0) 
+    {  
+        len=send(socket,chunk,len,0);
+        sentData+=len;
+	}
+  	char response[20];
+  	bzero(response,20);
+  	int n = read(socket,response,20);
+  	cout<<"response from backendserver after sending all chunks at client end is "<<response<<endl;
+  	cout<<"Total bytes sent to backenserver are = "<<sentData<<endl;
+  	if(!strcmp(response,"ack")){  // means backend successfullly received file so update metadat of file in server also
+  		 if( access( username.c_str(), F_OK ) != -1 ) {   // if metadta filealready present then only update
+  			FILE *fptr = fopen(username.c_str(),"a");
+  			char ch[]="\n";
+  			char empty[] = " ";
+  			char *filename=NULL;
+            filename = strtok(file_name, "_");
+            cout<<"filename 1 = "<<filename<<endl;
+    		filename = strtok(NULL, "_");  
+    		cout<<"filename 2 = "<<filename<<endl;
+  			char* filesizeBuffer = (char *)malloc(sizeof(filesize));
+			sprintf(filesizeBuffer,"%d",filesize);
+  			fwrite(filename,strlen(filename),1,fptr); // EACH ELEMENT IS OF SIZE 1 BYTE TO BE WRITTEN AND THERE ARE SIZEOF(BUFFER) ELEMENTS
+    		fwrite(empty,strlen(empty),1,fptr);
+    		fprintf(fptr,"%s",filesizeBuffer);
+    		fwrite(ch,strlen(ch),1,fptr);
+    		fclose(fptr);
+    		free(filesizeBuffer);
+    		cout<<"file metatda updated at server local copy also."<<endl;
+    	}
+    	else{
+    		cout<<"metadat file of this user is not foud at server so not updated."<<endl;
+    	}
+  	} 
+  	
+  	fclose(sendFile);
+  	close(socket);
+  	pthread_exit(NULL);
   
-  
-  
-
-
-}
+} // send_file_to_backend() ends
 
 void *receive_file_from_backend(void* arguments)
 {
@@ -438,6 +452,12 @@ void *receive_file_from_backend(void* arguments)
   n = read(socket,buffer,BUFF_SIZE);
   sscanf(buffer,"%ld",&received_file_size_from_backend);
   cout<<"received_file_size_from_backend="<<received_file_size_from_backend<<endl;
+
+  if(received_file_size_from_backend==0){   // it means file does not exist on backend
+  	cout<<"No such file exists on backend"<<endl;
+  	return NULL;
+  }
+  else{   // file exists transfer from backend to server
   n = write(socket,"filesize_received_ack",strlen("filesize_received_ack"));
   FILE *receivedFile = NULL;
 
@@ -479,6 +499,8 @@ void *receive_file_from_backend(void* arguments)
   cout<<"Total bytes received to server is = "<<receivedData<<endl;
   fclose(receivedFile);
   close(socket);
+
+} // else ends
   pthread_exit(NULL);
 
   
@@ -682,14 +704,39 @@ void send_to_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50])
   cout << "Sending file to client:"<< username << endl;
   string fileName = string(username) + "_" + string(filename);
     
-  if(sessionactiveflag==1){
+  if(sessionactiveflag==1){   // means session is active
     printf("session match found at server\n");
+    char fname[50];
+	bzero(fname, sizeof fname);
+    memcpy(fname,ip_map_uname[clientip].c_str(),sizeof(fname));
+    int is_file_available=0;
+    cout<<"fname is:"<<fname<<endl;
+    if( access( fname, F_OK ) != -1 ) {  // means metadata file is available openit and check for requested file name
+    	cout<<"inside access"<<endl;
+    	char filename_inside_file[50];
+    	long filesize;
+    	char line[50];
+    	FILE *fptr = fopen(fname,"r");
+    	while(fgets(line,sizeof(line),fptr)!= NULL){
+    	sscanf(line,"%s %ld",filename_inside_file,&filesize);
+    	if(!strcmp(filename_inside_file,filename)){  // if filename match found then make a call to backend else return to client saying no such file exists.
+      			cout<<"file is found in metadata at server."<<endl;
+      			is_file_available = 1;
+      			break;
+      		
+    	}
 
+  		} //while ends
+  		fclose(fptr);
+  	} // if close
+  	else{ // what to do if metadata file is not present get metadat file from backend
+
+
+  	}
     
-    int is_file_available = 1;
     //is_file_available = verify_from_user_filestat(filename,username);
 
-    if (is_file_available)
+    if (is_file_available == 1)
       {
 
         handle_backend((char *)fileName.c_str(),username,filesize,2);
@@ -718,12 +765,22 @@ void send_to_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50])
       
         
       }
+      else if(is_file_available==0){
+
+      	int reponse = 2; // it indicates that the requested file is not available at backend server also.
+      	sprintf(buffer,"%d",reponse);
+      	n = write(newsockfd,buffer,strlen(buffer));
+      	if(n<0){
+        	error("send_to_client() Error writing to socket");
+      	}
+      } // else if closed
     
 
       
-    } 
+    } // session active flag if closed 
     
     else{
+    	cout<<"session match failed"<<endl;
       long filesize = 0;
       sprintf(buffer,"%d %ld",sessionactiveflag,filesize);
       n = write(newsockfd,buffer,strlen(buffer));
@@ -767,6 +824,7 @@ void get_filesystem_from_backend(int newsockfd,char buffer[BUFF_SIZE],char clien
 	if(checksessionactive(clientip,sessionid)){  // means session is active
 		cout<<"Session match found at server."<<endl;
 		char fname[50];
+		bzero(fname, sizeof fname);
 		string dirname = "metadata";
 		int choice =1;
 		memcpy(fname,ip_map_uname[clientip].c_str(),sizeof(fname));

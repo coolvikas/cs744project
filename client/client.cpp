@@ -209,7 +209,7 @@ int download(int sockfd){
         cout<<"Sorry you are not logged in. Please login first."<<endl;
         return -1 ;
     }
-    else{
+    else if (download_response==1){
         cout<<"Requested file is found at server with size ="<<download_filesize<<" Bytes !!"<<endl;
         // file match is found on server and filesize is received so ack server that client is ready to download file.
         int n = write(sockfd,"filesize_received_ack",21);
@@ -252,7 +252,11 @@ int download(int sockfd){
         }  //while close
         close(f); /* close file*/
         cout<<"Client Downloaded:"<<rcvd_file_size<<" bytes in "<<recv_count<<" recv(s)\n"<<endl;
-        }  // close else
+        }  // close else if
+    else if(download_response == 2){
+        cout<<"Requested file is not found in the File system. Please upload first."<<endl;
+    }
+
 
 
 } // close download
