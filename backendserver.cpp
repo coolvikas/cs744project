@@ -32,7 +32,29 @@ void error(const char *msg){
 }
 
 
+void addFileInShare(char* dirName,char* fileName,int socket)
+{
+	string fileLocation = "share.txt";
+	
+	
+	FILE *sendFile = NULL;
+	sendFile = fopen(fileLocation.c_str(),"w");
+	char ch[] = "\n";
+    char empty[] = " ";
+    fwrite(fileName,strlen(fileName),1,sendFile); // EACH ELEMENT IS OF SIZE 1 BYTE TO BE WRITTEN AND THERE ARE SIZEOF(BUFFER) ELEMENTS
+    fwrite(empty,strlen(empty),1,sendFile);
+    fwrite(dirName,strlen(dirName),1,sendFile);
+    fwrite(ch,strlen(ch),1,sendFile);
+    fclose(sendFile);
+    int n = write(socket,"ack",3);
+ 	if (n < 0) error("ERROR writing to socket");
+ 			
+	
 
+	close(socket);
+	pthread_exit(NULL);
+
+}
 
 
 
@@ -265,6 +287,8 @@ void *service_single_client(void *args) {
        else if(command==2)
         sendFile(dirName,fileName,socket,filesize);
 
+    	else if(command==3)
+    		addFileInShare(dirName,fileName,socket);
        else
         fprintf(stderr, "server did not send proper command\n");
 

@@ -177,9 +177,25 @@ void logout(int sockfd){
 
 }  // logout() closed
 
+int share(int sockfd)
+{
+	char filename[50];
+    bzero(filename,sizeof filename);
+    cout<<"Enter filename : ";
+    cin>>filename;
+    char share_buffer[BUFFER_SIZE];
+    memset(&share_buffer,sizeof(share_buffer,0));
+    int choice =6;
+    sprintf(share_buffer,"%d %d %s",choice,sessionid,filename);
+    int n = write(sockfd,share_buffer,strlen(share_buffer));
+    if(n<0)
+        cout<<"Error writing to share_buffer socket to server"<<endl;
 
-// This section will download file from remote server. First it will send message request "4 sessionid filename". 
-// then middle server will check if client is logged in or not via session id and give response.
+
+    
+
+}
+
 int download(int sockfd){
   //get filename from user
     char filename[50];
@@ -483,6 +499,11 @@ int main(int argc, char *argv[]){
           
           int flag = download(sockfd);
           break;
+        }
+        case 6:
+        {
+        	share(sockfd);
+        	break;
         }
         case 10:
         {
