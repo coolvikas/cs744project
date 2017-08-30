@@ -368,7 +368,41 @@ void sigint_handler(int sig)
     //close(sockfd);
 }
 
+void deletefile(int sockfd){  // deletes a file from backend and other places
+    char delete_buffer[BUFFER_SIZE];
+    bzero(delete_buffer,sizeof((int*)delete_buffer));
+    int choice = 9;
+    char delete_filename[50];
+    cout<<"Enter the filename to delete:"<<endl;
+    cin>>delete_filename;
+    sprintf(delete_buffer,"%d %d %s",choice,sessionid,delete_filename);
+    int n = write(sockfd,delete_buffer,strlen(delete_buffer));
+    if(n<0){
+        cout<<"deletefile() error writing to buffer"<<endl;
+    }
+    bzero(delete_buffer,sizeof((int*)delete_buffer));
+    int response;
+    n = read(sockfd,delete_buffer,sizeof((int *)delete_buffer));
+    if(n<0){
+        cout<<"deletefile() error reading from socket"<<endl;
+    }
+    sscanf(delete_buffer,"%d",&response);
+    if(response == 0){
+        cout<<"Sorry you are not logged in."<<endl;
+        return;
+    }
+    else if(response == 1){
+        cout<<"Sorry the requested file does not exist on server."<<endl;
+        return;
+    }
+    else if(response == 2){
+        cout<<"File is successfully deleted on server."<<endl;
+        return;
+    }
 
+
+
+}
 int main(int argc, char *argv[]){
     void sigint_handler(int sig); /* prototype */
     
@@ -422,8 +456,9 @@ int main(int argc, char *argv[]){
       printf("3.Upload Files\n");
       printf("4.Check File system\n");
       printf("5.Downlaod Files\n");
+      printf("9.Delete file\n");
       printf("10.Logout\n");
-
+     
       scanf("%d",&choice );
     
       switch(choice)
@@ -481,7 +516,7 @@ int main(int argc, char *argv[]){
             }
             else if(!strcmp(buffer,"0")){
 
-              printf("Please try again signup with different username and password.\n" );
+              printf("Username already exists. Please choose a different username and password.\n" );
             }
             else if(!strcmp(buffer,"2")){
 
@@ -505,6 +540,11 @@ int main(int argc, char *argv[]){
           
           int flag = download(sockfd);
           break;
+        }
+        case 9:
+        {
+            deletefile(sockfd);
+            break;
         }
         case 10:
         {

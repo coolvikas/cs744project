@@ -32,91 +32,77 @@ void error(const char *msg){
 }
 
 
-
-
-
-
 void sendFile(char* dirName,char* fileName,int socket,long filesize)
 {	
-
 	char buffer[BUFF_SIZE];
     bzero(buffer,BUFF_SIZE);
     string fileLocation = string(dirName) + "/" + string(fileName);
-	if( access( fileLocation.c_str(), F_OK ) != -1 ) {    //means file exists
+	if( access( fileLocation.c_str(), F_OK ) != -1 ) 
+	{    //means file exists
+       	// to know file size and send it to server
+    	cout<<"inside sendFile()"<<endl;
+    	FILE *fptr1 = NULL;
+    	fptr1 = fopen(fileLocation.c_str(),"r");
+    	fseek(fptr1,0, SEEK_END);
+    	long file_len =(unsigned long)ftell(fptr1);
+    	printf("length of file is%ld\n",file_len);
+    	fseek(fptr1,0,SEEK_SET);
+    	fclose(fptr1);
     
-    
-    // to know file size and send it to server
-    cout<<"inside sendFile()"<<endl;
-    FILE *fptr1 = NULL;
-    fptr1 = fopen(fileLocation.c_str(),"r");
-    fseek(fptr1,0, SEEK_END);
-    long file_len =(unsigned long)ftell(fptr1);
-    printf("length of file is%ld\n",file_len);
-    fseek(fptr1,0,SEEK_SET);
-    fclose(fptr1);
-    
-    sprintf(buffer,"%ld",file_len);
-    int n = write(socket,buffer,BUFF_SIZE);
-    char file_size_response[BUFF_SIZE];
-    bzero(file_size_response,BUFF_SIZE);
-    n = read(socket,file_size_response,BUFF_SIZE);
-    cout<<"reponse from server after sending file size is: "<<file_size_response<<endl;
+    	sprintf(buffer,"%ld",file_len);
+    	int n = write(socket,buffer,BUFF_SIZE);
+    	char file_size_response[BUFF_SIZE];
+    	bzero(file_size_response,BUFF_SIZE);
+    	n = read(socket,file_size_response,BUFF_SIZE);
+    	cout<<"reponse from server after sending file size is: "<<file_size_response<<endl;
 
-    FILE *sendFile = NULL;
+    	FILE *sendFile = NULL;
 
 
-    sendFile = fopen(fileLocation.c_str(),"r");
+    	sendFile = fopen(fileLocation.c_str(),"r");
 
-    if(!sendFile)
+    	if(!sendFile)
         fprintf(stderr, "Error fopen ----> %s", strerror(errno));
 
-    int sentData=0;
-                    //----buffer chunk to create the file in chunk.
-    char chunk[BUFF_SIZE];
-    memset(&chunk,0,sizeof(chunk));
-    int len;
+    	int sentData=0;
+        //----buffer chunk to create the file in chunk.
+    	char chunk[BUFF_SIZE];
+    	memset(&chunk,0,sizeof(chunk));
+    	int len;
                      //-------reading the requested file in chunk.
-    while ((len=fread(chunk,1,sizeof chunk, sendFile)) > 0) 
-        {  
-            len=send(socket,chunk,len,0);
-                        
-            sentData+=len;
-           /* if(sentData == file_len ){
-                    
+    	while ((len=fread(chunk,1,sizeof chunk, sendFile)) > 0) 
+    	{
+    		len=send(socket,chunk,len,0);
+        	sentData+=len;
+    	}
+    	cout<<"Total bytes sent to server is = "<<sentData<<endl;   
+    	char response[20];
+  		bzero(response,20);
+  		n = read(socket,response,20);
+  		cout<<"response from server after receiving all chunks is "<<response<<endl;
+    	fclose(sendFile);
+    	
+	}  // if ends
 
-                    int n = write(socket,"ack",3);
-                    if (n < 0) error("ERROR writing to socket");
-                    break;
-                }  */
+	else
+	{     // file does not exist 
+		int filefound = 0;
+		sprintf(buffer,"%d",filefound);
+    	int n = write(socket,buffer,BUFF_SIZE);
+    	if(n<=0){
+    		error("sendFile() error writing to socket.");
+		}
 
-        }
-    cout<<"Total bytes sent to server is = "<<sentData<<endl;   
-    char response[20];
-  	bzero(response,20);
-  	n = read(socket,response,20);
-  	cout<<"response from server after receiving all chunks is "<<response<<endl;
-    fclose(sendFile);
-    close(socket);
-}  // if ends
+	} //else ends
 
-else{     // file does not exist 
-	int filefound = 0;
-	sprintf(buffer,"%d",filefound);
-    int n = write(socket,buffer,BUFF_SIZE);
-    if(n<=0){
-    	error("sendFile() error writing to socket.");
-	}
-
-}
-
+	close(socket);
     pthread_exit(NULL);
 
-}
+}   //sendFile() ends
 
 
 void receiveFile(char* dirName,char* fileName,int socket,long filesize)
 {
-
 	int n = write(socket,"backendserver_ready_to_receive",strlen("backendserver_ready_to_receive"));
     struct stat st = {0};
 
@@ -131,13 +117,11 @@ void receiveFile(char* dirName,char* fileName,int socket,long filesize)
     long rcvd_file_size=0;
     receivedFile = fopen(fileLocation.c_str(),"w");
 
-     if (receivedFile == NULL)
-        {
-                fprintf(stderr, "Failed to open file--> %s\n", strerror(errno));
-
-                exit(EXIT_FAILURE);
-
-        }
+    if (receivedFile == NULL)
+    {
+        fprintf(stderr, "Failed to open file--> %s\n", strerror(errno));
+        exit(EXIT_FAILURE);
+    }
 
     char chunk[BUFF_SIZE];
     memset(&chunk,'\0',sizeof chunk);
@@ -145,144 +129,126 @@ void receiveFile(char* dirName,char* fileName,int socket,long filesize)
     //Receiving the file in chunks.
 
     while ((len = recv(socket, chunk, BUFF_SIZE, 0)) > 0)
-
-        {      
-                rcvd_file_size+=len;
+    {      
+        rcvd_file_size+=len;
+        if(writtentofile= fwrite(chunk, 1,len, receivedFile)<0)
+        {
+          	error("cant write to file");
+        }
                 
-                if(writtentofile= fwrite(chunk, 1,len, receivedFile)<0){
-                	error("cant write to file");
-                }
-                
-                	// if revd file size == filesize it means we received complete file.
-                 if(rcvd_file_size==filesize){
-                 	cout<<"in if condition rcvd_file_size= "<<rcvd_file_size<<endl<<"filesize="<<filesize<<endl;
-                 	cout<<"writing metadata"<<endl;
+      	// if revd file size == filesize it means we received complete file.
+        if(rcvd_file_size==filesize){
+        	cout<<"in if condition rcvd_file_size= "<<rcvd_file_size<<endl<<"filesize="<<filesize<<endl;
+            cout<<"writing metadata"<<endl;
+           	// write the filename to metadata/uname.txt
+           	char *filename=NULL;
+            filename = strtok(fileName, "_");
+    		filename = strtok(NULL, "_");                 	
+            string metadata = string("metadata") + "/" + string(dirName);
+            char* filesizeBuffer = (char *)malloc(sizeof(filesize));
+			sprintf(filesizeBuffer,"%ld",filesize);
+            FILE *metafile = fopen(metadata.c_str(),"a");
+    		char ch[] = "\n";
+    		char empty[] = " ";
+    		fwrite(filename,strlen(filename),1,metafile); // EACH ELEMENT IS OF SIZE 1 BYTE TO BE WRITTEN AND THERE ARE SIZEOF(BUFFER) ELEMENTS
+    		fwrite(empty,strlen(empty),1,metafile);
+    		fprintf(metafile,"%s",filesizeBuffer);
+    		fwrite(ch,strlen(ch),1,metafile);
+    		fclose(metafile);
+    		cout<<"metadata written"<<endl;
 
-                 	// write the filename to metadata/uname.txt
-                 	char *filename=NULL;
-                 	filename = strtok(fileName, "_");
-    				filename = strtok(NULL, "_");                 	
-                 	string metadata = string("metadata") + "/" + string(dirName);
-                 	char* filesizeBuffer = (char *)malloc(sizeof(filesize));
-					sprintf(filesizeBuffer,"%ld",filesize);
-                 	FILE *metafile = fopen(metadata.c_str(),"a");
-    				char ch[] = "\n";
-    				char empty[] = " ";
-    				fwrite(filename,strlen(filename),1,metafile); // EACH ELEMENT IS OF SIZE 1 BYTE TO BE WRITTEN AND THERE ARE SIZEOF(BUFFER) ELEMENTS
-    				fwrite(empty,strlen(empty),1,metafile);
-    				fprintf(metafile,"%s",filesizeBuffer);
-    				fwrite(ch,strlen(ch),1,metafile);
-    				fclose(metafile);
-    				cout<<"metadata written"<<endl;
-
- 					int n = write(socket,"ack",3);
- 					if (n < 0) error("ERROR writing to socket");
- 					break;
- 				}
+ 			int n = write(socket,"ack",3);
+ 			if (n < 0){
+ 				error("ERROR writing to socket");
+ 			}
+ 			break;
+ 			}  //if ends
  
     	
-        }
-        fclose(receivedFile);
-        cout<<"rcvd_file_size="<<rcvd_file_size<<endl;
-        
-        printf("Receiving file %s status %s\n",fileName,strerror(errno));
-       close(socket); 
-       pthread_exit(NULL);
+    }  // while ends
+    fclose(receivedFile);
+    cout<<"rcvd_file_size="<<rcvd_file_size<<endl;
+    printf("Receiving file %s status %s\n",fileName,strerror(errno));
+    close(socket); 
+    pthread_exit(NULL);
 
-}
+}  //receiveFile() ends
+
+
+void deleteFile(char* dirName,char* fileName,int socket){
+	// delete filenemae from share.txt
+	// delete filename from metadata/username file
+	// delete file from username/ filename
+	cout<<"inside deleteFile()"<<endl;
+	int deleteResponse = 0;
+	char deleteBuffer[BUFF_SIZE];
+	memset(&deleteBuffer,0,sizeof((char *)deleteBuffer));
+	sprintf(deleteBuffer,"%d",deleteResponse);
+	int n = write(socket,deleteBuffer,strlen(deleteBuffer));
+	if (n < 0){
+		error("deleteFile() error writing to socket");
+	}
+	 close(socket);
+	 pthread_exit(NULL);
+
+
+}  //deleteFile() ends
 
 
 void *service_single_client(void *args) {
-    struct workerArgs *wa;
+	struct workerArgs *wa;
     int socket, nbytes;
     char tosend[100];
     char feedback[10];
     /* Unpack the arguments */
     wa = (struct workerArgs*) args;
     socket = wa->socket;
-
-    /* This tells the pthreads library that no other thread is going to
-       join() this thread. This means that, once this thread terminates,
-       its resources can be safely freed (instead of keeping them around
-       so they can be collected by another thread join()-ing this thread) */
-    
-
     fprintf(stderr, "Socket %d connected\n", socket);
-
     while(1)
     {
-        //sprintf(tosend,"%d Upload OR Download\n", (int) time(NULL));
-
-        //nbytes = send(socket, tosend, strlen(tosend), 0);
-
-        char buff[BUFF_SIZE];
+    	char buff[BUFF_SIZE];
         memset(&buff,0,sizeof(buff));
-        
         if ((nbytes = recv(socket, buff, sizeof buff, 0)) <= 0)
-            {
-                        
+        {                
             if (nbytes == 0) {
-                // connection closed
-                printf("connection %d closed\n", socket);
+            	printf("connection %d closed\n", socket);
                 close(socket);
                 free(wa);
                 pthread_exit(NULL);
-
-            }
+			}
             else {
                 perror("recv");
-                 }
             }
-    /*    else
-
-         {  int flag=1;
-         	bzero(feedback,sizeof(feedback));
-            sprintf(feedback,"%d", flag);
-            nbytes = send(socket,feedback,strlen(feedback),0);
-            if (nbytes != -1)
-                cout << "sent feedback " << feedback << endl;
-         }                                           */
+        }
         cout << "buff:" << buff <<endl;
-       int command;
-       char fileName[50];
-       long filesize;
-       char dirName[50] ;
-       sscanf(buff,"%d %ld %s %s ",&command,&filesize,dirName,fileName);
+ 	    int command;
+       	char fileName[50];
+       	long filesize;
+       	char dirName[50] ;
+       	sscanf(buff,"%d %ld %s %s ",&command,&filesize,dirName,fileName);       
+       	cout<<"filesize="<<filesize<<endl;
+        cout<<"strtok filename = "<<fileName<<endl;
+       	cout<<"strtok dirName= "<<dirName<<endl;
 
-       
-       cout<<"filesize="<<filesize<<endl;
-       
-       cout<<"strtok filename = "<<fileName<<endl;
-       cout<<"strtok dirName= "<<dirName<<endl;
+       	if(command==1)
+        	receiveFile(dirName,fileName,socket,filesize);
 
+       	else if(command==2)
+        	sendFile(dirName,fileName,socket,filesize);
 
-       
-       
-
-       if(command==1)
-        receiveFile(dirName,fileName,socket,filesize);
-
-       else if(command==2)
-        sendFile(dirName,fileName,socket,filesize);
-
-       else
-        fprintf(stderr, "server did not send proper command\n");
+       	else if(command == 9){
+       		deleteFile(dirName,fileName,socket);
+       	}
+       	else
+        	fprintf(stderr, "server did not send proper command\n");
 
         close(socket);
         free(wa);
-        
+    }  // while close
 
+  	pthread_exit(NULL);
 
-
-
-    }
-
-    pthread_exit(NULL);
-}
-
-
-
-
+}  //service_single_client() closed
 
 
 
@@ -380,8 +346,7 @@ void *accept_clients(void *args)
     }
 
     pthread_exit(NULL);
-}
-
+}  //accept_clients() ends
 
 
 
@@ -400,4 +365,4 @@ int main(int argc, char *argv[])
     pthread_join(server_thread, NULL);
 
    return 0;
-}
+} //main ends
