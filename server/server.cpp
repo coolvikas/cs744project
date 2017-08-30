@@ -294,6 +294,10 @@ int communicate_with_backend_to_receive(int choice,char* file_name,int size,cons
   if (n<=0){
   	cout<<"communicate_with_backend_to_receive() error wting to socket."<<endl;
   }
+<<<<<<< HEAD
+=======
+  
+>>>>>>> f009f961e7cb29f6aa131d5cca91a45c17e5219f
   return sockfd;      
 }
 
@@ -829,6 +833,21 @@ void clear_session(int newsockfd, char buff[BUFF_SIZE], char clientip[50]){
 }
 
 //this function gets the list of files available with backend for a particular client and stores them temporarily here.
+void share_filename_with_backend(int newsockfd,char buffer[BUFF_SIZE],char clientip[50])
+{
+	int choice =3 ;
+	int sessionid;
+	char filename[50];
+	char username[50];
+	memcpy(username,ip_map_uname[clientip].c_str(),sizeof(username));
+	sscanf(buffer,"%d %d %S",&choice,&sessionid,filename);
+	if(checksessionactive(clientip,sessionid))
+	{
+		communicate_with_backend_to_send(choice,filename,0,username);
+	}
+
+}
+
 void get_filesystem_from_backend(int newsockfd,char buffer[BUFF_SIZE],char clientip[50]){
 	int choice,sessionid;
 	cout<<"inside get_filesystem_from_backend()"<<endl;
@@ -1060,10 +1079,17 @@ void *service_single_client(void *args){
 				send_to_client(newsockfd,buffer,ipstr);
 				break;
 			}
+<<<<<<< HEAD
 			case 9:
 			{
 				deletefile(newsockfd,buffer,ipstr);
 				break;
+=======
+			case 6:
+			{
+				//communicate_with_backend_to_send(choice,file_name,filesize,username.c_str());
+				share_filename_with_backend(newsockfd,buffer,ipstr);
+>>>>>>> f009f961e7cb29f6aa131d5cca91a45c17e5219f
 			}
 			case 10:
 			{
