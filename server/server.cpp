@@ -306,6 +306,8 @@ int communicate_with_backend_to_receive(int choice,char* file_name,int size,cons
 int communicate_with_backend_to_send(int choice,char* file_name,int size,const char* username)
 
 {
+
+	cout << "In communicate_with_backend :" << endl;
   int sockfd = connect_to_backend();
 
   cout << "In communicate_with_backend :" << " file name :" << file_name << endl;
@@ -496,6 +498,94 @@ void *receive_file_from_backend(void* arguments)
 
 }
 
+void *receive_share_file_from_backend(void* arguments)
+{
+
+  cout << "In receive share file from backend" << endl;
+  struct backendArgs *args = (struct backendArgs *)arguments;
+  
+  char toSend[BUFF_SIZE];
+  bzero(toSend,BUFF_SIZE);
+  char file_name[50];
+  bzero(file_name,sizeof(file_name));
+
+  memcpy(file_name,args->filename,sizeof(file_name));
+  string username = string(args->userid);
+  int n;
+ 
+  int choice = 3;
+
+  // this file size is not used 
+
+  int filesize = args->filesize;
+  cout<<"receive_file_from_backend() filesize passed = "<<filesize<<endl;
+  
+  int socket=communicate_with_backend_to_receive(choice,file_name,filesize,username.c_str());
+  
+  string fileLocation = args->filename;
+
+  long received_file_size_from_backend;
+  char buffer[BUFF_SIZE];
+  bzero(buffer,BUFF_SIZE);
+  n = read(socket,buffer,BUFF_SIZE);
+  sscanf(buffer,"%ld",&received_file_size_from_backend);
+  cout<<"received_file_size_from_backend="<<received_file_size_from_backend<<endl;
+
+  if(received_file_size_from_backend==0){   // it means file does not exist on backend
+  	cout<<"No such file exists on backend"<<endl;
+  	return NULL;
+  }
+  else{   // file exists transfer from backend to server
+  n = write(socket,"filesize_received_ack",strlen("filesize_received_ack"));
+  FILE *receivedFile = NULL;
+
+  receivedFile = fopen(fileLocation.c_str(),"w");
+    if(!receivedFile)
+      fprintf(stderr, "Error fopen ----> %s", strerror(errno));
+
+  int receivedData=0;
+                    //----buffer chunk to create the file in chunk.
+  char chunk[BUFF_SIZE];
+  bzero(chunk,BUFF_SIZE);
+  //memset(&chunk,0,sizeof(chunk));
+  int len;
+
+   while ((len = recv(socket, chunk, BUFF_SIZE, 0)) > 0)
+
+        {       
+                receivedData+=len;
+              
+                if(n= fwrite(chunk, 1,len, receivedFile)<0){
+                  error("cant write to file");
+                }
+                
+                 if(receivedData==received_file_size_from_backend)
+                  {
+                    cout << "file received completely\n";
+                    
+                    int n = write(socket,"ack",3);
+                    if (n < 0) error("ERROR writing to socket");
+                    break;
+                  }
+
+                
+        
+ 
+      
+        }
+ 
+  cout<<"Total bytes received to server is = "<<receivedData<<endl;
+  fclose(receivedFile);
+  close(socket);
+
+} // else ends
+  pthread_exit(NULL);
+
+  
+
+}
+
+
 void handle_backend(char file_name[50],string userId,long filesize,int choice)
 {
 
@@ -527,6 +617,17 @@ void handle_backend(char file_name[50],string userId,long filesize,int choice)
      { cout << "Inside else if" << endl; 
 
       if (pthread_create(&handle_backend, NULL, receive_file_from_backend,args) != 0)
+      {
+        error("Could not create a worker thread");
+        free(args);
+      }
+      pthread_join(handle_backend,NULL);
+    }
+
+     else if(choice == 3)
+     { cout << "Inside else if" << endl; 
+
+      if (pthread_create(&handle_backend, NULL, receive_share_file_from_backend,args) != 0)
       {
         error("Could not create a worker thread");
         free(args);
@@ -675,7 +776,7 @@ void receive_from_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50]
 }
 
 
-void send_to_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50])
+void send_to_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50],int priv_share)
 {
   
   cout<<"inside send to client"<<endl;
@@ -697,27 +798,53 @@ void send_to_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50])
     printf("session match found at server\n");
     char fname[50];
 	bzero(fname, sizeof fname);
-    memcpy(fname,ip_map_uname[clientip].c_str(),sizeof(fname));
+	if(priv_share)
+    	memcpy(fname,ip_map_uname[clientip].c_str(),sizeof(fname));
+    else
+    	memcpy(fname,"share.txt",sizeof(fname));
     int is_file_available=0;
     cout<<"fname is:"<<fname<<endl;
-    if( access( fname, F_OK ) != -1 ) {  // means metadata file is available openit and check for requested file name
+    if( access( fname, F_OK ) != -1 ) {  // means metadata file or share.txt is available openit and check for requested file name
     	cout<<"inside access"<<endl;
     	char filename_inside_file[50];
     	long filesize;
+    	char userid[50];
     	char line[50];
     	FILE *fptr = fopen(fname,"r");
-    	while(fgets(line,sizeof(line),fptr)!= NULL){
-    	sscanf(line,"%s %ld",filename_inside_file,&filesize);
-    	if(!strcmp(filename_inside_file,filename)){  // if filename match found then make a call to backend else return to client saying no such file exists.
+    	if(priv_share)
+    	{
+    		while(fgets(line,sizeof(line),fptr)!= NULL)
+    		{
+	    	sscanf(line,"%s %ld",filename_inside_file,&filesize);
+	    	if(!strcmp(filename_inside_file,filename))
+    			{  // if filename match found then make a call to backend else return to client saying no such file exists.
       			cout<<"file is found in metadata at server."<<endl;
       			is_file_available = 1;
       			break;
       		
-    	}
+    			}
 
-  		} //while ends
+  			} //while ends
+    	}
+    	else
+    	{
+
+    		while(fgets(line,sizeof(line),fptr)!= NULL)
+    		{
+	    	sscanf(line,"%s %s",filename_inside_file,userid);
+	    	if(!strcmp(filename_inside_file,filename))
+    			{  // if filename match found then make a call to backend else return to client saying no such file exists.
+      			cout<<"file is found in metadata at server."<<endl;
+      			is_file_available = 1;
+      			break;
+      		
+    			}
+
+  			} //while 
+    	}
   		fclose(fptr);
   	} // if close
+  	
   	else{ // what to do if metadata file is not present get metadata file from backend
   		cout<<"inside access else part"<<endl;
   		char fname[50];
@@ -761,11 +888,14 @@ void send_to_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50])
 
   	}
     
-    //is_file_available = verify_from_user_filestat(filename,username);
+   
 
     if (is_file_available == 1)
     {
-		handle_backend((char *)fileName.c_str(),username,filesize,2);
+		if(priv_share)
+			handle_backend((char *)fileName.c_str(),username,filesize,2);
+		else
+			handle_backend((char *)fileName.c_str(),username,filesize,3);
         FILE *fptr1 = NULL;
     	fptr1 = fopen(fileName.c_str(),"r");
     	fseek(fptr1,0, SEEK_END);
@@ -799,7 +929,7 @@ void send_to_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50])
       	if(n<0){
         	error("send_to_client() Error writing to socket");
       	}
-      } // else if closed
+      } 
     
 
       
@@ -856,16 +986,37 @@ void clear_session(int newsockfd, char buff[BUFF_SIZE], char clientip[50]){
 //this function gets the list of files available with backend for a particular client and stores them temporarily here.
 void share_filename_with_backend(int newsockfd,char buffer[BUFF_SIZE],char clientip[50])
 {
-	int choice =3 ;
+	int choice;
 	int sessionid;
 	char filename[50];
 	char username[50];
 	memcpy(username,ip_map_uname[clientip].c_str(),sizeof(username));
-	sscanf(buffer,"%d %d %S",&choice,&sessionid,filename);
+	sscanf(buffer,"%d %d %s",&choice,&sessionid,filename);
+	string fileLocation = "share.txt";
+	
+	
+	FILE *shareFile = NULL;
+	shareFile = fopen(fileLocation.c_str(),"a");
+	char ch[] = "\n";
+    char empty[] = " ";
+    fwrite(filename,strlen(filename),1,shareFile); 
+    fwrite(empty,strlen(empty),1,shareFile);
+    fwrite(username,strlen(username),1,shareFile);
+    fwrite(ch,strlen(ch),1,shareFile);
+    fclose(shareFile);
+
 	if(checksessionactive(clientip,sessionid))
 	{
 		communicate_with_backend_to_send(choice,filename,0,username);
 	}
+	else
+  	{
+  	printf("session match not found at server\n");
+  	
+
+  	
+
+  }
 
 }
 
@@ -1050,13 +1201,18 @@ void *service_single_client(void *args){
 			}
 			case 5:
 			{
-				send_to_client(newsockfd,buffer,ipstr);
+				send_to_client(newsockfd,buffer,ipstr,1);
 				break;
 			}
 			case 6:
 			{
 				//communicate_with_backend_to_send(choice,file_name,filesize,username.c_str());
 				share_filename_with_backend(newsockfd,buffer,ipstr);
+			}
+			case 7:
+			{
+				send_to_client(newsockfd,buffer,ipstr,0);
+				break;
 			}
 			case 10:
 			{

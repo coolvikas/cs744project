@@ -201,7 +201,7 @@ int share(int sockfd)
     cout<<"Enter filename : ";
     cin>>filename;
     char share_buffer[BUFFER_SIZE];
-    memset(&share_buffer,sizeof(share_buffer,0));
+    memset(&share_buffer,sizeof(share_buffer),0);
     int choice =6;
     sprintf(share_buffer,"%d %d %s",choice,sessionid,filename);
     int n = write(sockfd,share_buffer,strlen(share_buffer));
@@ -213,8 +213,8 @@ int share(int sockfd)
 
 }
 
-int download(int sockfd){
-  //get filename from user
+int download(int sockfd,int priv_share){
+  
     char filename[50];
     bzero(filename,sizeof filename);
     cout<<"Enter filename : ";
@@ -222,15 +222,20 @@ int download(int sockfd){
     //form a message request in downlaodbuffer
     char download_buffer[BUFFER_SIZE];
     bzero(download_buffer,BUFFER_SIZE);
-    int choice = 5;   // here 4 is code for downlaod
-    //enter choice sessionid filename in buffer and send to socket 
+    int choice;
+    if(priv_share)
+    	choice = 5;// here 4 is code for downlaod
+    else
+    	choice = 7;
+
+    
     sprintf(download_buffer,"%d %d %s",choice,sessionid,filename);
     int n = write(sockfd,download_buffer,strlen(download_buffer));
     if(n<0){
         cout<<"Error writing to download_buffer socket to server"<<endl;
     }
     bzero(download_buffer,BUFFER_SIZE);
-    // read response from server in download_buffer
+   
     n = read(sockfd,download_buffer,sizeof (download_buffer));
     if(n<0){
         cout<<"Error reading server response in download_buffer"<<endl;
@@ -249,8 +254,8 @@ int download(int sockfd){
         if(n<0){
         cout<<"Error writing filesize_received_ack to server socket."<<endl;
         }
-        //open a file for writing
-        int f; //file descriptor
+        
+        int f; 
         ssize_t rcvd_bytes, rcvd_file_size;
         int recv_count; 
         char recv_str[BUFFER_SIZE]; 
@@ -437,7 +442,9 @@ int main(int argc, char *argv[]){
       printf("2.Signup\n" );
       printf("3.Upload Files\n");
       printf("4.Check File system\n");
-      printf("5.Downlaod Files\n");
+      printf("5.Downlaod File\n");
+      printf("6.Share files\n");
+      printf("7.Downlaod a file from other user\n");
       printf("10.Logout\n");
 
       scanf("%d",&choice );
@@ -519,13 +526,17 @@ int main(int argc, char *argv[]){
         case 5:
         {
           
-          int flag = download(sockfd);
+          int flag = download(sockfd,1);
           break;
         }
         case 6:
         {
         	share(sockfd);
         	break;
+        }
+        case 7:
+        {
+        	int flag = download(sockfd,0);
         }
         case 10:
         {

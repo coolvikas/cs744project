@@ -38,10 +38,10 @@ void addFileInShare(char* dirName,char* fileName,int socket)
 	
 	
 	FILE *sendFile = NULL;
-	sendFile = fopen(fileLocation.c_str(),"w");
+	sendFile = fopen(fileLocation.c_str(),"a");
 	char ch[] = "\n";
     char empty[] = " ";
-    fwrite(fileName,strlen(fileName),1,sendFile); // EACH ELEMENT IS OF SIZE 1 BYTE TO BE WRITTEN AND THERE ARE SIZEOF(BUFFER) ELEMENTS
+    fwrite(fileName,strlen(fileName),1,sendFile); 
     fwrite(empty,strlen(empty),1,sendFile);
     fwrite(dirName,strlen(dirName),1,sendFile);
     fwrite(ch,strlen(ch),1,sendFile);
@@ -55,7 +55,109 @@ void addFileInShare(char* dirName,char* fileName,int socket)
 	pthread_exit(NULL);
 
 }
+string getFileLocation(char *filename)
+{	char filename_inside_file[50];
+    long filesize;
+    char userid[50];
+    FILE *fptr = fopen("share.txt","r");
+    char line[30];
 
+	while(fgets(line,sizeof(line),fptr)!= NULL)
+    		{
+	    	sscanf(line,"%s %s",filename_inside_file,userid);
+	    	if(!strcmp(filename_inside_file,filename))
+    			{  // if filename match found then make a call to backend else return to client saying no such file exists.
+      			cout<<"file is found in share.txt"<<endl;
+      			
+      			break;
+      		
+    			}
+
+  			} //while 
+
+  	fclose(fptr);
+  	string fileLocation = string(userid) + "/" + string(filename);
+  	return fileLocation;
+}
+
+
+void sendShareFile(char* dirName,char* fileName,int socket,long filesize)
+{	
+
+	char buffer[BUFF_SIZE];
+    bzero(buffer,BUFF_SIZE);
+
+    string fileLocation = getFileLocation(fileName);
+	if( access( fileLocation.c_str(), F_OK ) != -1 ) {    //means file exists
+    
+    
+    // to know file size and send it to server
+    cout<<"inside sendFile()"<<endl;
+    FILE *fptr1 = NULL;
+    fptr1 = fopen(fileLocation.c_str(),"r");
+    fseek(fptr1,0, SEEK_END);
+    long file_len =(unsigned long)ftell(fptr1);
+    printf("length of file is%ld\n",file_len);
+    fseek(fptr1,0,SEEK_SET);
+    fclose(fptr1);
+    
+    sprintf(buffer,"%ld",file_len);
+    int n = write(socket,buffer,BUFF_SIZE);
+    char file_size_response[BUFF_SIZE];
+    bzero(file_size_response,BUFF_SIZE);
+    n = read(socket,file_size_response,BUFF_SIZE);
+    cout<<"reponse from server after sending file size is: "<<file_size_response<<endl;
+
+    FILE *sendFile = NULL;
+
+
+    sendFile = fopen(fileLocation.c_str(),"r");
+
+    if(!sendFile)
+        fprintf(stderr, "Error fopen ----> %s", strerror(errno));
+
+    int sentData=0;
+                    //----buffer chunk to create the file in chunk.
+    char chunk[BUFF_SIZE];
+    memset(&chunk,0,sizeof(chunk));
+    int len;
+                     //-------reading the requested file in chunk.
+    while ((len=fread(chunk,1,sizeof chunk, sendFile)) > 0) 
+        {  
+            len=send(socket,chunk,len,0);
+                        
+            sentData+=len;
+           /* if(sentData == file_len ){
+                    
+
+                    int n = write(socket,"ack",3);
+                    if (n < 0) error("ERROR writing to socket");
+                    break;
+                }  */
+
+        }
+    cout<<"Total bytes sent to server is = "<<sentData<<endl;   
+    char response[20];
+  	bzero(response,20);
+  	n = read(socket,response,20);
+  	cout<<"response from server after receiving all chunks is "<<response<<endl;
+    fclose(sendFile);
+    close(socket);
+}  // if ends
+
+else{     // file does not exist 
+	int filefound = 0;
+	sprintf(buffer,"%d",filefound);
+    int n = write(socket,buffer,BUFF_SIZE);
+    if(n<=0){
+    	error("sendFile() error writing to socket.");
+	}
+
+}
+
+    pthread_exit(NULL);
+
+}
 
 
 void sendFile(char* dirName,char* fileName,int socket,long filesize)
@@ -287,7 +389,10 @@ void *service_single_client(void *args) {
        else if(command==2)
         sendFile(dirName,fileName,socket,filesize);
 
-    	else if(command==3)
+    	else if(command == 3)
+    		sendShareFile(dirName,fileName,socket,filesize);
+
+    	else if(command==6)
     		addFileInShare(dirName,fileName,socket);
        else
         fprintf(stderr, "server did not send proper command\n");
