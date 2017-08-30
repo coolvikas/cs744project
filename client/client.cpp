@@ -201,7 +201,7 @@ int share(int sockfd)
     cout<<"Enter filename : ";
     cin>>filename;
     char share_buffer[BUFFER_SIZE];
-    memset(&share_buffer,sizeof(share_buffer,0));
+    memset(&share_buffer,0,sizeof((char *)share_buffer));
     int choice =6;
     sprintf(share_buffer,"%d %d %s",choice,sessionid,filename);
     int n = write(sockfd,share_buffer,strlen(share_buffer));
@@ -389,7 +389,7 @@ void deletefile(int sockfd){  // deletes a file from backend and other places
     bzero(delete_buffer,sizeof((int*)delete_buffer));
     int choice = 9;
     char delete_filename[50];
-    cout<<"Enter the filename to delete:"<<endl;
+    cout<<"Enter the filename to delete:";
     cin>>delete_filename;
     sprintf(delete_buffer,"%d %d %s",choice,sessionid,delete_filename);
     int n = write(sockfd,delete_buffer,strlen(delete_buffer));
@@ -399,6 +399,7 @@ void deletefile(int sockfd){  // deletes a file from backend and other places
     bzero(delete_buffer,sizeof((int*)delete_buffer));
     int response;
     n = read(sockfd,delete_buffer,sizeof((int *)delete_buffer));
+    cout<<"buffer response received is = "<<delete_buffer<<endl;
     if(n<0){
         cout<<"deletefile() error reading from socket"<<endl;
     }
@@ -557,17 +558,18 @@ int main(int argc, char *argv[]){
           int flag = download(sockfd);
           break;
         }
-<<<<<<< HEAD
-        case 9:
-        {
-            deletefile(sockfd);
-            break;
-=======
+
         case 6:
         {
         	share(sockfd);
         	break;
->>>>>>> f009f961e7cb29f6aa131d5cca91a45c17e5219f
+
+        }
+
+        case 9:
+        {
+            deletefile(sockfd);
+            break;
         }
         case 10:
         {
