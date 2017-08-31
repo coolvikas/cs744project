@@ -363,7 +363,30 @@ void *service_single_client(void *args) {
             }
         }
         cout << "buff:" << buff <<endl;
+ 	    int command;
+       	char fileName[50];
+       	long filesize;
+       	char dirName[50] ;
+       	sscanf(buff,"%d %ld %s %s ",&command,&filesize,dirName,fileName);       
+       	cout<<"filesize="<<filesize<<endl;
+        cout<<"strtok filename = "<<fileName<<endl;
+       	cout<<"strtok dirName= "<<dirName<<endl;
 
+       	if(command==1)
+        	receiveFile(dirName,fileName,socket,filesize);
+
+       	else if(command==2)
+        	sendFile(dirName,fileName,socket,filesize);
+        else if(command==3)
+    		addFileInShare(dirName,fileName,socket);
+
+       	else if(command == 9){
+       		deleteFile(dirName,fileName,socket);
+       	}
+       	else
+        	fprintf(stderr, "server did not send proper command\n");
+<<<<<<< HEAD
+=======
        int command;
        char fileName[50];
        long filesize;
@@ -393,7 +416,9 @@ void *service_single_client(void *args) {
     		addFileInShare(dirName,fileName,socket);
        else
         fprintf(stderr, "server did not send proper command\n");
-
+>>>>>>> f009f961e7cb29f6aa131d5cca91a45c17e5219f
+=======
+>>>>>>> 8ba352686f074ea1ba3ade66ba450900a07d6250
 
         close(socket);
         free(wa);

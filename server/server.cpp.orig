@@ -978,7 +978,7 @@ void share_filename_with_backend(int newsockfd,char buffer[BUFF_SIZE],char clien
 	char username[50];
 	memcpy(username,ip_map_uname[clientip].c_str(),sizeof(username));
 	sscanf(buffer,"%d %d %s",&choice,&sessionid,filename);
-
+<<<<<<< HEAD
 	string fileLocation = "share.txt";
 	
 	
@@ -992,7 +992,8 @@ void share_filename_with_backend(int newsockfd,char buffer[BUFF_SIZE],char clien
     fwrite(ch,strlen(ch),1,shareFile);
     fclose(shareFile);
 
-
+=======
+>>>>>>> 8ba352686f074ea1ba3ade66ba450900a07d6250
 	if(checksessionactive(clientip,sessionid))
 	{
 		communicate_with_backend_to_send(choice,filename,0,username);

@@ -201,11 +201,9 @@ int share(int sockfd)
     cout<<"Enter filename : ";
     cin>>filename;
     char share_buffer[BUFFER_SIZE];
-<<<<<<< HEAD
-    memset(&share_buffer,sizeof(share_buffer),0);
-=======
+
     memset(&share_buffer,0,sizeof((char *)share_buffer));
->>>>>>> 8ba352686f074ea1ba3ade66ba450900a07d6250
+
     int choice =6;
     sprintf(share_buffer,"%d %d %s",choice,sessionid,filename);
     int n = write(sockfd,share_buffer,strlen(share_buffer));
@@ -573,31 +571,25 @@ int main(int argc, char *argv[]){
           break;
         }
 
-<<<<<<< HEAD
-        case 9:
-        {
-            deletefile(sockfd);
-            break;
-        }
-=======
->>>>>>> 8ba352686f074ea1ba3ade66ba450900a07d6250
+
         case 6:
         {
         	share(sockfd);
         	break;
 
         }
-<<<<<<< HEAD
+
         case 7:
         {
         	int flag = download(sockfd,0);
-=======
 
+          break;
+        }
         case 9:
         {
             deletefile(sockfd);
             break;
->>>>>>> 8ba352686f074ea1ba3ade66ba450900a07d6250
+
         }
         case 10:
         {
