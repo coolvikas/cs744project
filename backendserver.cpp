@@ -15,6 +15,7 @@
 #include <unistd.h>
 #include <string>
 #include <iostream>
+#include <fstream>
 
 #define BUFF_SIZE 256
 using namespace std;
@@ -202,24 +203,68 @@ void receiveFile(char* dirName,char* fileName,int socket,long filesize)
 
 }  //receiveFile() ends
 
+void deleteFilename(char* filename,const char* filelocation)
+{
+ 
+ FILE *fptr = fopen(filelocation,"r");
+ ofstream temp;
+ temp.open("temp.txt");
+   char filename_inside_file[50];
+    char userid[50];
+    char line[50];
+
+    while(fgets(line,sizeof(line),fptr)!= NULL)
+            {
+            sscanf(line,"%s %s",filename_inside_file,userid);
+
+            
+            if(strcmp(filename_inside_file,filename))
+                temp << line;
+
+        
+
+            } //while
+	temp.close();
+    fclose(fptr);
+    remove(filelocation);
+    rename("temp.txt",filelocation);
+}
+
 
 void deleteFile(char* dirName,char* fileName,int socket){
 	int deleteResponse = 0;
-	// delete filenemae from share.txt
-	// delete filename from metadata/username file
-	// delete file from username/ filename
-	string file_to_delete = string(dirName) + "/" + string(dirName) + "_" + string(fileName);
-	if( access( file_to_delete.c_str(), F_OK ) != -1 ){  // means metafile is present so delete it
-		if( remove( file_to_delete.c_str() ) != 0 ){
-    		perror( "Error deleting file" );
-		}
-  		else{
-    		puts( "User File successfully deleted" );
-    		deleteResponse = 1;
-		}	
-		
-	}  // access if closed
+	int file_available_to_delete=0;
 	cout<<"inside deleteFile()"<<endl;
+	// delete filename from share.txt
+	string shareFileLocation = "share.txt";
+	if( access( shareFileLocation.c_str(), F_OK ) != -1 ) {
+		deleteFilename(fileName,shareFileLocation.c_str());
+	}
+	// delete filename from metadata/username file
+	string fileLocation1 = string("metadata") + "/" + string(dirName);
+	if( access( fileLocation1.c_str(), F_OK ) != -1 ) {   
+		// file is found 
+		file_available_to_delete = 1;
+		deleteFilename(fileName,fileLocation1.c_str());
+		deleteResponse = 1;
+	}
+	else{
+		deleteResponse = 0;
+	}
+	// delete file from username/ filename
+	if(file_available_to_delete==1){
+		string file_to_delete = string(dirName) + "/" + string(dirName) + "_" + string(fileName);
+		if( access( file_to_delete.c_str(), F_OK ) != -1 ){  // means metafile is present so delete it
+			if( remove( file_to_delete.c_str() ) != 0 ){
+    			perror( "Error deleting file" );
+			}
+  			else{
+    			puts( "User File successfully deleted" );
+    			deleteResponse = 1;
+			}	
+		
+		}  // access if closed
+	} // if closed
 	
 	char deleteBuffer[BUFF_SIZE];
 	memset(&deleteBuffer,0,sizeof((char *)deleteBuffer));
