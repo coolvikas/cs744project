@@ -394,7 +394,7 @@ void *send_file_to_backend(void* arguments){
   	cout<<"response from backendserver after sending all chunks at client end is "<<response<<endl;
   	cout<<"Total bytes sent to backenserver are = "<<sentData<<endl;
   	if(!strcmp(response,"ack")){  // means backend successfullly received file so update metadat of file in server also
-  		 if( access( username.c_str(), F_OK ) != -1 ) {   // if metadata filealready present then only update
+  		// metadata file has to be updated once the file is sent to backend
   			FILE *fptr = fopen(username.c_str(),"a");
   			char ch[]="\n";
   			char empty[] = " ";
@@ -409,11 +409,8 @@ void *send_file_to_backend(void* arguments){
     		fwrite(ch,strlen(ch),1,fptr);
     		fclose(fptr);
     		free(filesizeBuffer);
-    		cout<<"file metatda updated at server local copy also."<<endl;
-    	}
-    	else{
-    		cout<<"metadata file of this user is not found at server so not updated."<<endl;
-    	}
+    		cout<<"File metatda updated at server local copy also."<<endl;
+    
   	} 
   	
   	fclose(sendFile);
@@ -1064,9 +1061,7 @@ void show_filesystem_to_client(int newsockfd,char buffer[BUFF_SIZE],char clienti
 		} 		
 		else 
 		{
-
-			cout<<"Metadata File is "<<endl;
-    		// file doesn't exist  make connection to backend to receive file
+			cout<<"No metadata file exists for this client."<<endl;
 			char buffer[BUFF_SIZE];
       		bzero(buffer,BUFF_SIZE);
       		int choice = 2;
@@ -1084,6 +1079,7 @@ void show_filesystem_to_client(int newsockfd,char buffer[BUFF_SIZE],char clienti
 	else
 	{
 		// session active check failed
+		cout<<"Session check failed for this request."<<endl;
 		int response = 0;
 		char *responsebuffer = NULL;
 		char buffer[BUFF_SIZE];
