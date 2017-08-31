@@ -38,7 +38,14 @@ void error(const char *msg){
   perror(msg);
   exit(1);
 }
-
+void handle_backend(char [],string,long ,int );
+void get_client_metadata_file(char filename[30]){
+	// this function will get clients metadta file from backend server if the client logs in successfully and session ID is generated
+	string dirname = "metadata";
+	int choice =1;
+	handle_backend(filename,dirname,0,2);
+	cout<<"get_client_metadata_file() after receiving metadata file from backend";
+}
 int generatesessionid(char clientip[50],char uname[50]){
 	srand (time(NULL)); // generate a seed using the current time
 	char *username = (char *)malloc(sizeof(char)*50);
@@ -67,6 +74,7 @@ int generatesessionid(char clientip[50],char uname[50]){
   	}
 
   	cout << endl;
+  	get_client_metadata_file(uname);
   	return sessionid;
 }  // generatesessionid() closed
  
@@ -577,11 +585,7 @@ void *receive_share_file_from_backend(void* arguments)
                     break;
                   }
 
-                
-        
- 
-      
-        }
+          }
  
   cout<<"Total bytes received to server is = "<<receivedData<<endl;
   fclose(receivedFile);
@@ -1015,7 +1019,7 @@ void share_filename_with_backend(int newsockfd,char buffer[BUFF_SIZE],char clien
 
 }
 
-void get_filesystem_from_backend(int newsockfd,char buffer[BUFF_SIZE],char clientip[50]){
+void show_filesystem_to_client(int newsockfd,char buffer[BUFF_SIZE],char clientip[50]){
 	int choice,sessionid;
 	cout<<"inside get_filesystem_from_backend()"<<endl;
 	sscanf(buffer,"%d %d",&choice,&sessionid);
@@ -1058,54 +1062,28 @@ void get_filesystem_from_backend(int newsockfd,char buffer[BUFF_SIZE],char clien
 
 
 		} 		
-		else {
-			cout<<"Files does not exists calling handle_backend()"<<endl;
+		else 
+		{
+
+			cout<<"Metadata File is "<<endl;
     		// file doesn't exist  make connection to backend to receive file
-			handle_backend(fname,dirname,0,2);
-			cout<<"in get_filesystem_from_backend after handle_backend() call completed"<<endl;
 			char buffer[BUFF_SIZE];
-			bzero(buffer,BUFF_SIZE);
-			if( access( fname, F_OK ) != -1 ) {
-				FILE *fptr1 = NULL;
-    			fptr1 = fopen(ip_map_uname[clientip].c_str(),"r");
-    			fseek(fptr1,0, SEEK_END);
-    			long file_len =(unsigned long)ftell(fptr1);
-    			printf("length of file is%ld\n",file_len);
-    			fseek(fptr1,0,SEEK_SET);
-    			fclose(fptr1);
-
-        		sprintf(buffer,"%d %ld",choice,file_len);
-        		int n = write(newsockfd,buffer,strlen(buffer));
-        		if(n<0){
-            		error("Error writing to socket");
-              	}
-
-        		bzero(buffer,BUFF_SIZE);
-        		n = read(newsockfd,buffer,sizeof (buffer));
-        		cout<<"Response from client after sending file size is:"<<buffer<<endl;
-      			send_file(newsockfd,fname,ip_map_uname[clientip].c_str());
-      			cout << "sent complete file to client\n";
-      			bzero(buffer,BUFF_SIZE);
-      			n = read(newsockfd,buffer,3);
-      			cout << "message from client : " << buffer << endl;
-      		}
-      		else{
-      			bzero(buffer,BUFF_SIZE);
-      			int choice = 2;
-      			long file_len =0;
-      			sprintf(buffer,"%d %ld",choice,file_len);
-      			int n = write(newsockfd,buffer,strlen(buffer));
-        		if(n<0){
-            		error("Error writing to socket");
-              	}
-      		}
+      		bzero(buffer,BUFF_SIZE);
+      		int choice = 2;
+      		long file_len =0;
+      		sprintf(buffer,"%d %ld",choice,file_len);
+      		int n = write(newsockfd,buffer,strlen(buffer));
+        	if(n<0){
+            	error("Error writing to socket");
+            }
+      	} // else closed
       		return;
 
-		}
+	} // checksessionactive if closed  
 
-
-	}  // if closes
-	else{
+	else
+	{
+		// session active check failed
 		int response = 0;
 		char *responsebuffer = NULL;
 		char buffer[BUFF_SIZE];
@@ -1290,7 +1268,7 @@ void *service_single_client(void *args){
 			}
 			case 4:
 			{
-				get_filesystem_from_backend(newsockfd,buffer,ipstr);
+				show_filesystem_to_client(newsockfd,buffer,ipstr);
 				break;
 			}
 			case 5:
