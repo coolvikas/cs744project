@@ -19,6 +19,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netdb.h>
+#include <fstream>
 #define pt(a) (cout << "Test case:" << a << endl)
 #define BUFF_SIZE 256
 using namespace std;
@@ -294,10 +295,7 @@ int communicate_with_backend_to_receive(int choice,char* file_name,int size,cons
   if (n<=0){
   	cout<<"communicate_with_backend_to_receive() error wting to socket."<<endl;
   }
-<<<<<<< HEAD
-=======
-  
->>>>>>> f009f961e7cb29f6aa131d5cca91a45c17e5219f
+
   return sockfd;      
 }
 
@@ -395,7 +393,7 @@ void *send_file_to_backend(void* arguments){
     		cout<<"file metatda updated at server local copy also."<<endl;
     	}
     	else{
-    		cout<<"metadat file of this user is not foud at server so not updated."<<endl;
+    		cout<<"metadata file of this user is not found at server so not updated."<<endl;
     	}
   	} 
   	
@@ -483,8 +481,17 @@ void *delete_file_from_backend(void *arguments){
     int socket=communicate_with_backend_to_receive(choice,file_name,filesize,username.c_str());
     char deleteBuffer[BUFF_SIZE];
     memset(&deleteBuffer,0,sizeof((char *)deleteBuffer));
-    n = read(socket,deleteBuffer,sizeof((char *)deleteBuffer));
     cout<<"Response from backend after deleting is : "<<deleteBuffer<<endl;
+    n = read(socket,deleteBuffer,sizeof((char *)deleteBuffer));
+    int response;
+    sscanf(deleteBuffer,"%d",&response);
+    if(response==1){
+    	cout<<"File deleted successfully at backend server."<<endl;
+    }
+    else{
+    	cout<<"File could not be deleted at backend server."<<endl;
+    }
+    close(socket);
     pthread_exit(NULL);
 
 } //delete_file_from_backend() ends
@@ -971,6 +978,7 @@ void share_filename_with_backend(int newsockfd,char buffer[BUFF_SIZE],char clien
 	char username[50];
 	memcpy(username,ip_map_uname[clientip].c_str(),sizeof(username));
 	sscanf(buffer,"%d %d %s",&choice,&sessionid,filename);
+<<<<<<< HEAD
 	string fileLocation = "share.txt";
 	
 	
@@ -984,6 +992,8 @@ void share_filename_with_backend(int newsockfd,char buffer[BUFF_SIZE],char clien
     fwrite(ch,strlen(ch),1,shareFile);
     fclose(shareFile);
 
+=======
+>>>>>>> 8ba352686f074ea1ba3ade66ba450900a07d6250
 	if(checksessionactive(clientip,sessionid))
 	{
 		communicate_with_backend_to_send(choice,filename,0,username);
@@ -1106,6 +1116,32 @@ void get_filesystem_from_backend(int newsockfd,char buffer[BUFF_SIZE],char clien
 	
 } // get_filesystem() closed
 
+void deleteFilename(char* filename,const char* filelocation)
+{
+ 
+ FILE *fptr = fopen(filelocation,"r");
+ ofstream temp;
+ temp.open("temp.txt");
+   char filename_inside_file[50];
+    char userid[50];
+    char line[50];
+
+    while(fgets(line,sizeof(line),fptr)!= NULL)
+            {
+            sscanf(line,"%s %s",filename_inside_file,userid);
+
+            
+            if(strcmp(filename_inside_file,filename))
+                temp << line;
+
+        
+
+            } //while
+	temp.close();
+    fclose(fptr);
+    remove(filelocation);
+    rename("temp.txt",filelocation);
+}
 
 void deletefile(int newsockfd, char delete_buffer[BUFF_SIZE],char clientip[50]){
 	// this function will remove the specified filename in buffer from username file and share.txt file and also from backend share.txt and the original file on the backend.
@@ -1114,12 +1150,13 @@ void deletefile(int newsockfd, char delete_buffer[BUFF_SIZE],char clientip[50]){
 	int sessionid;
 	sscanf(delete_buffer,"%d %d %s",&choice,&sessionid,file_to_delete);
 	memset(&delete_buffer,0,sizeof((int*)delete_buffer));
-	int response;
+	
 	if(checksessionactive(clientip,sessionid)){
 		string metafile = ip_map_uname[clientip].c_str();
 		if( access( metafile.c_str(), F_OK ) != -1 ) {   
 			// means meta file is present. open it find the filename and delete.
 			//FILE *fptr = fopen(metafile,"w");
+			deleteFilename(file_to_delete,metafile.c_str());
 
 		}
 		else{
@@ -1137,19 +1174,32 @@ void deletefile(int newsockfd, char delete_buffer[BUFF_SIZE],char clientip[50]){
 		cout<<"metafile = "<<metafile<<endl;
 		cout<<"choice = "<<choice<<endl;
 		handle_backend(file_to_delete,metafile,0,choice);
-
+		cout<<"after handle_backend() completed back in deletefile."<<endl;
+		int respond = 2;
+		char response_buffer[BUFF_SIZE];
+		memset(&response_buffer,0,sizeof((char *)response_buffer));
+		sprintf(response_buffer,"%d",respond);
+		n = write(newsockfd,response_buffer,strlen(response_buffer));
+		if(n<0){
+			error("deletefile() Error writing to socket.");
+		}
+		cout<<"before if closed."<<endl;
 
 	}  // if closed
 
-
+	
 	else{  // session not active
-		response = 0;
+		cout<<"Sorry you are not logged in"<<endl;
+		int response=0;
+
 		sprintf(delete_buffer,"%d",response);
 		n = write(newsockfd,delete_buffer,strlen(delete_buffer));
 		if(n<0){
 			error("deletefile() Error writing to socket.");
 		}
+		cout<<"before closing else"<<endl;
 	}	 // else closed
+	cout<<"before closing deletefile()"<<endl;
 
 }  //deletefile() closed
 
@@ -1230,17 +1280,16 @@ void *service_single_client(void *args){
 				send_to_client(newsockfd,buffer,ipstr,1);
 				break;
 			}
-<<<<<<< HEAD
-			case 9:
-			{
-				deletefile(newsockfd,buffer,ipstr);
-				break;
-=======
 			case 6:
 			{
 				//communicate_with_backend_to_send(choice,file_name,filesize,username.c_str());
 				share_filename_with_backend(newsockfd,buffer,ipstr);
->>>>>>> f009f961e7cb29f6aa131d5cca91a45c17e5219f
+				break;
+			}
+			case 9:
+			{
+				deletefile(newsockfd,buffer,ipstr);
+				break;
 			}
 			case 7:
 			{

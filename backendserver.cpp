@@ -32,8 +32,7 @@ void error(const char *msg){
 }
 
 
-<<<<<<< HEAD
-=======
+
 void addFileInShare(char* dirName,char* fileName,int socket)
 {
 	string fileLocation = "share.txt";
@@ -162,7 +161,7 @@ else{     // file does not exist
 }
 
 
->>>>>>> f009f961e7cb29f6aa131d5cca91a45c17e5219f
+
 void sendFile(char* dirName,char* fileName,int socket,long filesize)
 {	
 	char buffer[BUFF_SIZE];
@@ -307,11 +306,23 @@ void receiveFile(char* dirName,char* fileName,int socket,long filesize)
 
 
 void deleteFile(char* dirName,char* fileName,int socket){
+	int deleteResponse = 0;
 	// delete filenemae from share.txt
 	// delete filename from metadata/username file
 	// delete file from username/ filename
+	string file_to_delete = string(dirName) + "/" + string(dirName) + "_" + string(fileName);
+	if( access( file_to_delete.c_str(), F_OK ) != -1 ){  // means metafile is present so delete it
+		if( remove( file_to_delete.c_str() ) != 0 ){
+    		perror( "Error deleting file" );
+		}
+  		else{
+    		puts( "User File successfully deleted" );
+    		deleteResponse = 1;
+		}	
+		
+	}  // access if closed
 	cout<<"inside deleteFile()"<<endl;
-	int deleteResponse = 0;
+	int deleteResponse = 0;	
 	char deleteBuffer[BUFF_SIZE];
 	memset(&deleteBuffer,0,sizeof((char *)deleteBuffer));
 	sprintf(deleteBuffer,"%d",deleteResponse);
@@ -353,26 +364,6 @@ void *service_single_client(void *args) {
         }
         cout << "buff:" << buff <<endl;
 <<<<<<< HEAD
- 	    int command;
-       	char fileName[50];
-       	long filesize;
-       	char dirName[50] ;
-       	sscanf(buff,"%d %ld %s %s ",&command,&filesize,dirName,fileName);       
-       	cout<<"filesize="<<filesize<<endl;
-        cout<<"strtok filename = "<<fileName<<endl;
-       	cout<<"strtok dirName= "<<dirName<<endl;
-
-       	if(command==1)
-        	receiveFile(dirName,fileName,socket,filesize);
-
-       	else if(command==2)
-        	sendFile(dirName,fileName,socket,filesize);
-
-       	else if(command == 9){
-       		deleteFile(dirName,fileName,socket);
-       	}
-       	else
-        	fprintf(stderr, "server did not send proper command\n");
 =======
        int command;
        char fileName[50];
@@ -404,6 +395,8 @@ void *service_single_client(void *args) {
        else
         fprintf(stderr, "server did not send proper command\n");
 >>>>>>> f009f961e7cb29f6aa131d5cca91a45c17e5219f
+=======
+>>>>>>> 8ba352686f074ea1ba3ade66ba450900a07d6250
 
         close(socket);
         free(wa);
