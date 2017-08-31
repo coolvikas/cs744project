@@ -170,10 +170,15 @@ int checkcredentials(char uname[20],char passwd[20]){
 	return flag;
 }
 
-void signupuser(int newsockfd,char buffer[BUFF_SIZE],char clientip[50]){
+void signupuser(int newsockfd,char buff[BUFF_SIZE],char clientip[50]){
 	int signupdone;
 	int n;
-	if (ip_map_sessionid.count(clientip)>0){
+  map <char*, int>::iterator it;
+   cout << "In signup" << endl;
+  it = ip_map_sessionid.find(clientip);
+  char buffer[BUFF_SIZE];
+  
+	if (it != ip_map_sessionid.end()){
 		memset(&buffer,0,sizeof((int*) buffer));
  		sprintf(buffer,"2");
  		int n = write(newsockfd,buffer,strlen(buffer));
@@ -186,19 +191,21 @@ void signupuser(int newsockfd,char buffer[BUFF_SIZE],char clientip[50]){
 	{
   		char uname[20],passwd[20];
   		int initial;
-  		sscanf(buffer,"%d %s %s",&initial,uname,passwd);
+  		sscanf(buff,"%d %s %s",&initial,uname,passwd);
   		printf("Received username passwd from client is:\n" );
   		fputs(uname,stdout);
   		fputs(" ",stdout);
   		fputs(passwd,stdout);
   		printf("\n" );
-
+      
   		FILE *fptr;
   		fptr = fopen("new.txt","a");
+   
   		char ch[]="\n";
   		char empty[] = " ";
   		int flag;
   		flag = checkcredentials(uname,passwd);
+      
   		if(flag == 1) //username already exists
   		{
     		signupdone = 0;
@@ -212,18 +219,24 @@ void signupuser(int newsockfd,char buffer[BUFF_SIZE],char clientip[50]){
   		}
   		fclose(fptr);
   	}
-
+    
   	if(signupdone ==1 ){
+      
     	memset(&buffer,0,sizeof((int*) buffer));
+    
      	sprintf(buffer,"1");
+      
      	n = write(newsockfd,buffer,strlen(buffer));
+            
      	if(n<0){
        		error("ERROR writing to socket");
   		}
+     
   		return;
   	}
 
   	else{
+     
     	memset(&buffer,0,sizeof((int*) buffer));
     	sprintf(buffer,"0");
     	n = write(newsockfd,buffer,strlen(buffer));

@@ -13,6 +13,7 @@
 #include <cmath>
 #include <stdlib.h> //for exit system call
 #include <unistd.h> //for read and write functions
+#include "fstream"
 #define BUFFER_SIZE 256
 int sessionid;
 
@@ -301,6 +302,13 @@ int download(int sockfd,int priv_share){
 
 } // close download
 
+void showuserfilesystem(char *filename)
+{
+  ifstream fptr;
+  fptr.open(filename);
+  if (fptr.is_open())
+        cout << fptr.rdbuf();
+}
 
 void get_filesystem_from_server (int sockfd)
 {
@@ -371,7 +379,7 @@ void get_filesystem_from_server (int sockfd)
             }
         }  //while close
         close(f); /* close file*/
-        cout<<"Client Downloaded:"<<rcvd_file_size<<" bytes in "<<recv_count<<" recv(s)\n"<<endl;
+        showuserfilesystem(filename);
     }
     else if(download_response == 2){
         
