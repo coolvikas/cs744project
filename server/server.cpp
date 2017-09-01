@@ -722,8 +722,43 @@ int receive_file(int socket,char file_name[50],string userId,long filesize)
 
       	fclose(receivedFile);
       	return 1;
-}  // receive_file() closed  
+}  
 
+
+int if_multiples_uploads(char* filename,char clientip[50])
+{
+  
+
+      string username = ip_map_uname[clientip];
+
+      char filename_inside_file[50];
+      
+     
+      char line[50];
+      FILE *fptr = fopen(username.c_str(),"r");
+
+
+      int is_file_available = 0;
+
+long filesize;
+
+while(fgets(line,sizeof(line),fptr)!= NULL)
+      {
+        sscanf(line,"%s %ld",filename_inside_file,&filesize);
+        if(!strcmp(filename_inside_file,filename))
+          {  // if filename match found then make a call to backend else return to client saying no such file exists.
+            
+            return 0;
+           
+          
+          }
+
+        } //while
+  return 1;
+
+
+
+}
 
 void receive_from_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50])
 {
@@ -735,8 +770,10 @@ void receive_from_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50]
     sscanf(buffer,"%d %d %s %ld",&initial,&sid,filename,&filesize);
     cout << "In receive_from_client: filename " << filename << endl;	
   	int sessionactiveflag=checksessionactive(clientip,sid);
+    int iffilemultipleupload=if_multiples_uploads(filename,clientip);
+    
   	bzero(buffer,BUFF_SIZE);
-    if(sessionactiveflag==1)
+    if(sessionactiveflag==1 && iffilemultipleupload == 1)
     {
   		printf("session match found at server\n");
   		sprintf(buffer,"%d",sessionactiveflag);
@@ -755,18 +792,29 @@ void receive_from_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50]
 
     	else
       		printf("could not receive file from client\n");
-	}
+	 }
 
   	// else notify client to login first
-  	else
+  	else if(!sessionactiveflag)
   	{
   		printf("session match not found at server\n");
   		sprintf(buffer,"%d",sessionactiveflag);
   		n = write(newsockfd,buffer,strlen(buffer));
-  		if(n<0){
+  		if(n<0)
   			error("Error writing to socket");
-  		}
-	}  // else closed
+  		
+	   }  // else if closed
+  else if(!iffilemultipleupload)
+  
+  {
+    printf("File has been uploaded already\n");
+      sprintf(buffer,"%d",2);
+      n = write(newsockfd,buffer,strlen(buffer));
+      if(n<0)
+        error("Error writing to socket");
+  }
+
+
 } // receive_from_client() closed
 
 
@@ -781,12 +829,16 @@ void send_to_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50],int 
   int sid;
   long int filesize=0;
   sscanf(buffer,"%d %d %s",&initial,&sid,filename);
-  cout<<"received filename at server to send to client is:"<<filename<<endl;
+ 
   int sessionactiveflag=checksessionactive(clientip,sid);
   bzero(buffer,BUFF_SIZE);
   string username = ip_map_uname[clientip];
   cout << "Sending file to client:"<< username.c_str() << endl;
-  string fileName = string(username) + "_" + string(filename);
+  string fileName;
+  if(priv_share)
+    fileName = string(username) + "_" + string(filename);
+  else
+    fileName = string(filename);
     
   if(sessionactiveflag==1){   // means session is active
     printf("session match found at server\n");
@@ -839,33 +891,11 @@ void send_to_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50],int 
   		fclose(fptr);
   	} // if close
   	
-  	else{ // what to do if metadata file is not present get metadata file from backend
-  		cout<<"inside access else part"<<endl;
-  		char fname[50];
-		bzero(fname, sizeof fname);
-		string dirname = "metadata";
-		memcpy(fname,ip_map_uname[clientip].c_str(),sizeof(fname));
-  		handle_backend(fname,dirname,0,2);
+  	else{ 
 
-   		// then once file is copied to server then open it and serach for requested filename 
-   		if( access( fname, F_OK ) != -1 ) {  // means file is successfully transferred from backend to server
-    		char filename_inside_file[50];
-    		long filesize;
-    		char line[50];
-    	
-    		FILE *fptr = fopen(fname,"r");
-    		while(fgets(line,sizeof(line),fptr)!= NULL){
-    			sscanf(line,"%s %ld",filename_inside_file,&filesize);
-    			if(!strcmp(filename_inside_file,filename)){  // if filename match found then make a call to backend else return to client saying no such file exists.
-      				cout<<"file is found in metadata at server."<<endl;
-      				is_file_available = 1;
-      				break;
-      			}
-			} //while ends
-			fclose(fptr);
-  		}  // access if ends
-
-  		else{
+      cout<<"Metadata file is not found in server.so client has to upload files first."<<endl;
+   		
+  		
   			char buffer[BUFF_SIZE];
   			bzero(buffer,BUFF_SIZE);
   			int filesize = 0;
@@ -876,7 +906,7 @@ void send_to_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50],int 
         		error("send_to_client() Error writing to socket");
       		}
       		return;
-  		}
+  		
 
   		
 

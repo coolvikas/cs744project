@@ -78,7 +78,7 @@ string getFileLocation(char *filename)
   			} //while 
 
   	fclose(fptr);
-  	string fileLocation = string(userid) + "/" + string(filename);
+  	string fileLocation = string(userid) + "/" + string(userid) + "_" + string(filename);
   	return fileLocation;
 }
 

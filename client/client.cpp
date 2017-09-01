@@ -29,12 +29,13 @@ void error(const char *msg){
 char* loginuser(){
   char *buffer=(char *)(malloc(sizeof(char)*BUFFER_SIZE));
   char uname[20], password[20];
-  printf("Enter username: " );
+  printf("                Enter username: " );
   scanf("%s",uname );
-  printf("Enter password: " );
+  printf("                Enter password: " );
   scanf("%s",password );
+  printf("\n");
   bzero(buffer,256);
-  printf("uname and password entered are : %s %s\n",uname,password );
+  //printf("uname and password entered are : %s %s\n",uname,password );
   int choice=1;
   sprintf(buffer,"%d %s %s",choice,uname,password);
   return buffer;
@@ -101,8 +102,12 @@ int send_file(int sock, char *file_name){
 
 int upload(int sockfd){
   char  filename[50];
-  cout<<"enter the filename to upload:";
+  
   cin>>filename;
+  if( access( filename, F_OK ) == -1 ) {  
+    cout << "File is not present in your current directory" << endl;
+    return 0;
+  }
   char buffer[BUFFER_SIZE];
   bzero(buffer,BUFFER_SIZE);
   int uploadfilenamecode = 3;  // 3 is the code for uploading file name to server and authenticating with session id before uplaoding.
@@ -135,17 +140,24 @@ int upload(int sockfd){
   if(n<0){
       error("ERROR reading from socket");
   }
-  cout<<"upload():reponse in buffer from server of 31 is:"<<buffer<<endl;
-  int sessionidresponse;
-  sscanf(buffer,"%d",&sessionidresponse);
-  if(sessionidresponse==1){
+  cout<<"upload():reponse in buffer from server is:"<<buffer<<endl;
+  int uploadresponse;
+  sscanf(buffer,"%d",&uploadresponse);
+  if(uploadresponse==1){
     cout<<"Session ID matched at server. Starting file upload to server."<<endl;
     send_file(sockfd,filename);
 
     // function to upload file 
   }
-  else{
-    cout<<"Session ID match failed. Please login first.";
+  else if(uploadresponse == 2) {
+    cout<<"File is already present in the file system.";
+
+    return 0;
+  }
+  else if(uploadresponse == 0)
+  {
+    cout<<"session id did not match.please login first.";
+
     return 0;
   }
 
@@ -283,7 +295,7 @@ int download(int sockfd,int priv_share){
             }  
             if(rcvd_file_size == download_filesize)
             {
-                cout << "in break condition" << rcvd_file_size << " " << download_filesize << endl;
+                
                 int n = write(sockfd,"ack",3);
                 if (n < 0) {
                     error("ERROR writing to socket");
@@ -308,6 +320,7 @@ void showuserfilesystem(char *filename)
   fptr.open(filename);
   if (fptr.is_open())
         cout << fptr.rdbuf();
+  remove(filename);
 }
 
 void get_filesystem_from_server (int sockfd)
@@ -463,9 +476,8 @@ int main(int argc, char *argv[]){
     if(sockfd<0){
       error("Error opening socket");
     }
-    else{
-      printf("Socket opened successfully\n");
-    }
+    else
+      printf("\n");
 
     server = gethostbyname(argv[1]);
     if(server == NULL){
@@ -479,33 +491,37 @@ int main(int argc, char *argv[]){
     if(connect(sockfd,(struct sockaddr *)&server_addr,sizeof(server_addr))<0){
       error("ERROR connecting");
     }
+     printf("      ==================================================================== Welcome To Univeral File Backup System =======================================================================================\n");
     int choice;
     do {
     /* code */
-      printf("Please select an option: (0 to exit)\n" );
-      printf("1.Login\n" );
-      printf("2.Signup\n" );
-      printf("3.Upload Files\n");
-      printf("4.Check File system\n");
-
-      printf("5.Downlaod File\n");
-      printf("6.Share files\n");
-      printf("7.Downlaod a file from other user\n");
-
-      printf("9.Delete file\n");
-
-      printf("10.Logout\n");
      
+
+      printf("\n      Please select an option: (0 to exit)\n\n" );
+      printf("                1.Login\n\n" );
+      printf("                2.Signup\n\n" );
+      printf("                3.Upload Files\n\n");
+      printf("                4.Check File system\n\n");
+
+      printf("                5.Downlaod File\n\n");
+      printf("                6.Share files\n\n");
+      printf("                7.Downlaod a file from other user\n\n");
+
+      printf("                9.Delete file\n\n");
+
+      printf("                10.Logout\n\n");
+     
+      printf("                Your choice is:");
       scanf("%d",&choice );
-    
+      printf("\n");
       switch(choice)
       {
         
         case 1: //loginuser
-          ;
+          {
           char *buffer1;
           buffer1 = loginuser();
-          printf("Value before writing  buffer is:%s\n",buffer1 );
+          //printf("Value before writing  buffer is:%s\n",buffer1 );
           n = write(sockfd,buffer1,strlen(buffer1));
           if(n<0){
             error("ERROR writing to socket");
@@ -516,23 +532,24 @@ int main(int argc, char *argv[]){
           if(n<0){
             error("ERROR reading from socket");
           }
-          cout<<"buffer received from server after calling login is"<<buffer<<endl;
+          //cout<<"buffer received from server after calling login is"<<buffer<<endl;
           int status;
           sscanf(buffer,"%d %d",&status,&sessionid);
           if(status == 1){
-            printf("Client is successfully authenticated at server end.\n");
-            cout<<"Session ID is:"<<sessionid;
+            printf("                Welcome!You are now logged in.\n");
+            //cout<<"Your session id is :"<<sessionid << endl;
           }
           else if(status ==0){
-            printf("Client cannot be authenticated at server end.\n" );
-          
+            printf("                Sorry!User id or password is wrong.\n" );
+
+             printf("               Try to Log in again.\n" );
           }
           if(status == 2)
           {
-            cout<<"client is already logged in with session id"<<sessionid<<" PLease do other operations.";
+            printf("               You are already logged in with session id.PLease do other operations.\n");
           }
           break;
-
+        }
 
         case 2: //lets signup first
         {
@@ -543,6 +560,7 @@ int main(int argc, char *argv[]){
             if(n<0){
               error("ERROR writing to socket");
             }
+            char buffer[BUFFER_SIZE];
             bzero(buffer,256);
             n = read(sockfd,buffer,255);
             if(n<0){
