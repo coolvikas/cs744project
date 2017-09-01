@@ -1,0 +1,6 @@
+1. after login upload then file is not checked if it is previously present with backend server or not in server
+2. only signup dumps
+3. in client, upload , give wrong file name then client and server both exit
+4. remove files from server after upload or download.
+5. display to user after copying file. 
+6. in server, while client uploads check if file already exists

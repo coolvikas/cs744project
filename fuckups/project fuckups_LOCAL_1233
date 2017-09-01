@@ -6,10 +6,3 @@
 
 7. IMP : before sharing check if file exists or not in client directory and check if file is previously shared or not.
 8. client login then upload a file then share and then try to delete shared file then server dumps after deleting local metadata and while handling backend.
-1. after login upload then file is not checked if it is previously present with backend server or not in server
-2.show share file list to client 
-3.display status after sharing a file.
-
-
-
-
