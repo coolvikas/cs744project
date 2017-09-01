@@ -424,11 +424,11 @@ void deletefile(int sockfd){  // deletes a file from backend and other places
         return;
     }
     else if(response == 1){
-        cout<<"Sorry the requested file does not exist on server."<<endl;
+        cout<<"File is successfully deleted on server."<<endl;
         return;
     }
     else if(response == 2){
-        cout<<"File is successfully deleted on server."<<endl;
+        cout<<"Sorry the requested file does not exist on server."<<endl;
         return;
     }
 
