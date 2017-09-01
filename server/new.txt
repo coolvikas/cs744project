@@ -1,12 +1,1 @@
-sat 123
 cc ra
-john snow
-madhu babu
-new cse
-root observium
-sat sat
-sanjeev kumar
-sanjeev kumar
-yy yy
-aa aa
-ee ee

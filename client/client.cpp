@@ -516,6 +516,7 @@ int main(int argc, char *argv[]){
       printf("\n");
       switch(choice)
       {
+
         
         case 1: //loginuser
           {
@@ -624,6 +625,12 @@ int main(int argc, char *argv[]){
 
         }
 
+         default:
+        {
+          printf("Enter a proper command\n");
+        
+          
+        }
 
       } // switch closed
 
