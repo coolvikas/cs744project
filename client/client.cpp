@@ -599,7 +599,7 @@ int main(int argc, char *argv[]){
       printf("3.Upload Files\n");
       printf("4.Check File system\n");
 
-      printf("5.Downlaod File\n");
+      printf("5.Download File\n");
       printf("6.Share files\n");
       printf("7.Downlaod a file shared by other users\n");
       printf("8.Check shared files\n");
