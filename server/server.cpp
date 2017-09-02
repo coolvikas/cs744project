@@ -20,7 +20,7 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <fstream>
-#define pt(a) (cout << "Test case:" << a << endl)
+// #define pt(a) (cout << "Test case:" << a << endl)
 #define BUFF_SIZE 256
 using namespace std;
 map <char*, int> ip_map_sessionid;
@@ -49,7 +49,7 @@ void get_client_metadata_file(char filename[30]){
 int generatesessionid(char clientip[50],char uname[50]){
 	srand (time(NULL)); // generate a seed using the current time
 	char *username = (char *)malloc(sizeof(char)*50);
-    username = uname; 
+  username = uname; 
 	int sessionid = rand(); // generate a random session ID
 	cout<<"generated a new session id for client"<<sessionid<<endl;
 	ip_map_sessionid.insert(pair <char *, int> (clientip, sessionid)); //insert client ip and sessionid into global map
@@ -89,7 +89,7 @@ int checksessionactive(char clientip[50],int sessionid){
 }
 
 void verifyuserlogin(int newsockfd,char buffer[BUFF_SIZE],char clientip[50]){
-	char uname[20],passwd[20];
+    char uname[20],passwd[20];
   	int initial;
   	sscanf(buffer,"%d %s %s",&initial,uname,passwd);
   	//printf("Received username passwd from client is:\n" );
@@ -415,7 +415,7 @@ void *send_file_to_backend(void* arguments){
     		fwrite(ch,strlen(ch),1,fptr);
     		fclose(fptr);
     		free(filesizeBuffer);
-    		cout<<"File metatda updated at server local copy also."<<endl;
+    		cout<<"File metadata updated at server local copy also."<<endl;
     
   	} 
   	
@@ -507,14 +507,15 @@ void *delete_file_from_backend(void *arguments){
   	memcpy(file_name,args->filename,sizeof(file_name));
   	string username = string(args->userid);
   	int n,choice = 9;
-	// this file size is not used 
-	int filesize = args->filesize;
+	 // this file size is not used 
+	 int filesize = args->filesize;
   	//cout<<"delete_file_from_backend() filesize passed = "<<filesize<<endl;
     int socket=communicate_with_backend_to_receive(choice,file_name,filesize,username.c_str());
     char deleteBuffer[BUFF_SIZE];
     memset(&deleteBuffer,0,sizeof((char *)deleteBuffer));
-    cout<<"Response from backend after deleting is : "<<deleteBuffer<<endl;
+    
     n = read(socket,deleteBuffer,sizeof((char *)deleteBuffer));
+    cout<<"Response from backend after deleting is : "<<deleteBuffer<<endl;
     int response;
     sscanf(deleteBuffer,"%d",&response);
     if(response==1){
@@ -602,14 +603,18 @@ void *receive_share_file_from_backend(void* arguments)
 
 void handle_backend(char file_name[50],string userId,long filesize,int choice)
 {
-	//cout << "In handle_backend() file name = " << file_name << endl;
-	//cout<<"userId="<<userId<<endl<<"filesize="<<filesize<<endl<<"choice="<<choice<<endl;
+	 //cout << "In handle_backend() file name = " << file_name << endl;
+	 //cout<<"userId="<<userId<<endl<<"filesize="<<filesize<<endl<<"choice="<<choice<<endl;
   	pthread_t handle_backend;
-  
+    //cout<<"hello1"<<endl;
   	struct backendArgs *args;
+    //cout<<"hello2"<<endl;
   	args = (backendArgs *)malloc(sizeof(struct backendArgs));
-  	args->userid = userId;
+  	//cout<<"hello3"<<endl;
+    args->userid = userId;
+    //cout<<"args->userid ="<<args->userid<<endl;
     args->filesize = filesize;
+    //cout<<"args->filesize ="<<args->filesize<<endl;
   	memcpy(args->filename,file_name,sizeof(args->filename));
   
   	//cout << "args filename: " << args->filename << endl;
@@ -682,7 +687,7 @@ void send_file(int socket,char file_name[50],string userId)
                      //-------reading the requested file in chunk.
     while ((len=fread(chunk,1,sizeof chunk, sendFile)) > 0) 
         {  
-        	cout<<".";
+        	printf("--\b");
             len=send(socket,chunk,len,0);
                         
             sentData+=len;
@@ -691,6 +696,7 @@ void send_file(int socket,char file_name[50],string userId)
                 }  */
 
         }
+        cout<<endl;
     cout<<"Server sent "<<sentData<<" bytes to client successfully !!"<<endl;
     fclose(sendFile);
    
@@ -834,15 +840,15 @@ void send_to_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50],int 
     {   // means session is active
     	printf("session match found at server\n");
     	char fname[50];
-		bzero(fname, sizeof fname);
-		if(priv_share)
-    		memcpy(fname,ip_map_uname[clientip].c_str(),sizeof(fname));
+		  bzero(fname, sizeof fname);
+		  if(priv_share)
+    		  memcpy(fname,ip_map_uname[clientip].c_str(),sizeof(fname));
     	else
-    		memcpy(fname,"share.txt",sizeof(fname));
+    		  memcpy(fname,"share.txt",sizeof(fname));
     	int is_file_available=0;
     	cout<<"fname is:"<<fname<<endl;
     	if( access( fname, F_OK ) != -1 )
-      	{  // means metadata file or share.txt is available openit and check for requested file name
+      {  // means metadata file or share.txt is available openit and check for requested file name
     		cout<<"inside access"<<endl;
     		char filename_inside_file[50];
     		long filesize;
@@ -943,8 +949,8 @@ void send_to_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50],int 
 
   				handle_backend((char *)filename,username,filesize,3);
 
-        }
-          	FILE *fptr1 = NULL;
+        
+          FILE *fptr1 = NULL;
       		fptr1 = fopen(filename,"r");
       		fseek(fptr1,0, SEEK_END);
       		long file_len =(unsigned long)ftell(fptr1);
@@ -979,6 +985,7 @@ void send_to_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50],int 
   				          }	
   		
   			     }  // access if closed
+          } // else closed
 
 		    }  //is_file_available if closed
 
@@ -1181,13 +1188,12 @@ void show_filesystem_to_client(int newsockfd,char buffer[BUFF_SIZE],char clienti
         	n = read(newsockfd,buffer,BUFF_SIZE);
         	cout<<"Response from client after sending file size is:"<<buffer<<endl;
 
-			send_file(newsockfd,fname,fname);
-			cout << "sent complete file to client\n";
-      		bzero(buffer,BUFF_SIZE);
-      		n = read(newsockfd,buffer,3);
+			 send_file(newsockfd,fname,fname);
+			   cout << "sent complete file to client\n";
+      	bzero(buffer,BUFF_SIZE);
+        n = read(newsockfd,buffer,3);
       		cout << "message from client : " << buffer << endl;
-      		return;
-
+      		
 
 		} 		
 		else 
@@ -1202,8 +1208,11 @@ void show_filesystem_to_client(int newsockfd,char buffer[BUFF_SIZE],char clienti
         	if(n<0){
             	error("Error writing to socket");
             }
-      	} // else closed
-      		return;
+
+            return;
+    } // else closed
+  
+    
 
 	} // checksessionactive if closed  
 
@@ -1227,6 +1236,91 @@ void show_filesystem_to_client(int newsockfd,char buffer[BUFF_SIZE],char clienti
 	
 } // get_filesystem() closed
 
+
+void show_sharedfile_to_client(int newsockfd,char buffer[BUFF_SIZE],char clientip[50]){
+  int choice,sessionid;
+  cout<<"inside show_sharedfile_to_client()"<<endl;
+  sscanf(buffer,"%d %d",&choice,&sessionid);
+  cout<<"sessionid = "<<sessionid<<endl;
+  if(checksessionactive(clientip,sessionid)){  // means session is active
+    cout<<"Session match found at server."<<endl;
+    char fname[50];
+    bzero(fname, sizeof fname);
+    string dirname = "share.txt";
+    int choice =1;
+    memcpy(fname,dirname.c_str(),sizeof(fname));
+    cout<<"fname="<<fname<<endl;
+    if( access( fname, F_OK ) != -1 ) {  //access return value is 0 if the access is permitted, and -1 otherwise.
+          // file exists locally send to client and display
+      FILE *fptr1 = NULL;
+        fptr1 = fopen(fname,"r");
+        fseek(fptr1,0, SEEK_END);
+        long file_len =(unsigned long)ftell(fptr1);
+        printf("length of file is%ld\n",file_len);
+        fseek(fptr1,0,SEEK_SET);
+        fclose(fptr1);
+
+        char buffer[BUFF_SIZE];
+        bzero(buffer,BUFF_SIZE);
+        sprintf(buffer,"%d %ld",choice,file_len);
+        int n = write(newsockfd,buffer,strlen(buffer));
+          if(n<0){
+              error("Error writing to socket");
+            }
+
+          bzero(buffer,BUFF_SIZE);
+          n = read(newsockfd,buffer,BUFF_SIZE);
+          cout<<"Response from client after sending file size is:"<<buffer<<endl;
+
+       send_file(newsockfd,fname,fname);
+         cout << "sent complete file to client\n";
+        bzero(buffer,BUFF_SIZE);
+        n = read(newsockfd,buffer,3);
+          cout << "message from client : " << buffer << endl;
+          
+
+    }     
+    else 
+    {
+      cout<<"No shared file exists for this client."<<endl;
+      char buffer[BUFF_SIZE];
+          bzero(buffer,BUFF_SIZE);
+          int choice = 2;
+          long file_len =0;
+          sprintf(buffer,"%d %ld",choice,file_len);
+          int n = write(newsockfd,buffer,strlen(buffer));
+          if(n<0){
+              error("Error writing to socket");
+            }
+
+            return;
+    } // else closed
+  
+    
+
+  } // checksessionactive if closed  
+
+  else
+  {
+    // session active check failed
+    cout<<"Session check failed for this request."<<endl;
+    int response = 0;
+    char *responsebuffer = NULL;
+    char buffer[BUFF_SIZE];
+    bzero(buffer,BUFF_SIZE);
+    sprintf(buffer,"%d %s",response,responsebuffer);
+    int n =write(newsockfd,buffer,strlen(buffer));
+    if(n<0){
+      cout<<"show_sharedfile_to_client():Error writing to socket"<<endl;
+    }
+
+  }  // else closes
+  return;
+
+  
+} // get_filesystem() closed
+
+
 int getFileSize(const std::string &fileName)
 {
     ifstream file(fileName.c_str(), ifstream::in | ifstream::binary);
@@ -1246,6 +1340,8 @@ int deleteFilename(char* filename,const char* filelocation)
 {
 	int flag = 2;
  	FILE *fptr = fopen(filelocation,"r");
+  //cout<<"inside deleteFilename(): fileLocation="<<filelocation<<endl;
+  //cout<<"inside deleteFilename(): fileto delete="<<filename<<endl;
  	ofstream temp;
  	temp.open("temp.txt");
    	char filename_inside_file[50];
@@ -1265,10 +1361,12 @@ int deleteFilename(char* filename,const char* filelocation)
         
 
             } //while
-	temp.close();
+	  temp.close();
     fclose(fptr);
     remove(filelocation);
     rename("temp.txt",filelocation);
+   
+    //cout<<"end of deleteFilename()"<<endl;
     return flag;
 }
 
@@ -1276,21 +1374,26 @@ void deletefile(int newsockfd, char delete_buffer[BUFF_SIZE],char clientip[50]){
 	// this function will remove the specified filename in buffer from username file and share.txt file and also from backend share.txt and the original file on the backend.
 	cout<<"in deletefile()"<<endl;
 	int choice,n;
-	char *file_to_delete=NULL;
+	char file_to_delete[50];
 	int sessionid;
+  bzero(file_to_delete,sizeof file_to_delete);
 	sscanf(delete_buffer,"%d %d %s",&choice,&sessionid,file_to_delete);
+  //cout<<"after reading from sscanf"<<endl;
+  //cout<<"choice = "<<choice<<"sessionid="<<sessionid<<endl<<"file_to_delete="<<file_to_delete<<endl;
 	memset(&delete_buffer,0,sizeof((int*)delete_buffer));
 	int feedback_to_client = 0;   // 0 means sesssion is not active , 1 means session is active and file is deleted successfully, 2 requested file is not uploaded on server, 
-
+  string metafile = ip_map_uname[clientip].c_str();
+  string shared_file = "share.txt";
 	if(checksessionactive(clientip,sessionid)){
-		string metafile = ip_map_uname[clientip].c_str();
+		
 		if( access( metafile.c_str(), F_OK ) != -1 ) {   
 			// means meta file is present. open it find the filename and delete.
 			//FILE *fptr = fopen(metafile,"w");
-			
+			cout<<"metafile ="<<metafile<<" is presnt"<<endl;
 			feedback_to_client = deleteFilename(file_to_delete,metafile.c_str());
-			
-			if(getFileSize(metafile.c_str())==0){
+			int n=getFileSize(metafile.c_str());
+			if(n==0){
+        cout<<"metafile size after deletion is "<<n<<endl;
 			
 				if( remove( metafile.c_str() ) != 0 ){
     				perror( "Error deleting file" );
@@ -1302,13 +1405,15 @@ void deletefile(int newsockfd, char delete_buffer[BUFF_SIZE],char clientip[50]){
 
 		
 			// check in shared file also
-			string shared_file = "share.txt";
+			
 			if( access( shared_file.c_str(), F_OK ) != -1 ) {  
 		 	// means shared file is present. open it find the filename and delete.
-			
+        cout<<"sharedfile ="<<shared_file<<" is presnt"<<endl;
+			   //cout<<"inside access shared_file"<<endl;
 				int x = deleteFilename(file_to_delete,shared_file.c_str());
-				
-				if(getFileSize(shared_file.c_str())==0){
+				int y=getFileSize(shared_file.c_str());
+				if(y==0){
+          cout<<"shared_file size is ="<<y<<endl;
 					if( remove( shared_file.c_str() ) != 0 ){
     					perror( "Error deleting file" );
 					}
@@ -1319,13 +1424,14 @@ void deletefile(int newsockfd, char delete_buffer[BUFF_SIZE],char clientip[50]){
 				}
 			}	
 
-
+      //cout<<"before feedback_to_client == 1 condition"<<endl;
 			// create backend thread
 			if(feedback_to_client==1){
 				//cout<<"before handle_backend() calling"<<endl;
 				//cout<<"file_to_delete = "<<file_to_delete<<endl;
 				//cout<<"metafile = "<<metafile<<endl;
 				//cout<<"choice = "<<choice<<endl;
+        cout<<"before calling handle_backend"<<endl;
 				handle_backend(file_to_delete,metafile,0,choice);
 				cout<<"after handle_backend() completed back in deletefile."<<endl;
 			
@@ -1336,7 +1442,7 @@ void deletefile(int newsockfd, char delete_buffer[BUFF_SIZE],char clientip[50]){
 				if(n<0){
 					error("deletefile() Error writing to socket.");
 				}
-				cout<<"before if closed."<<endl;
+				//cout<<"before if closed."<<endl;
 				return;
 			}
 			// means file does not exists on server
@@ -1454,7 +1560,7 @@ void *service_single_client(void *args){
     		}
 			case 2:
     		{
-      			pt(1);
+      			//pt(1);
       			signupuser(newsockfd,buffer,ipstr);
       			break;
     		}
@@ -1479,16 +1585,23 @@ void *service_single_client(void *args){
 				share_filename_with_backend(newsockfd,buffer,ipstr);
 				break;
 			}
+        case 7:
+      {
+        send_to_client(newsockfd,buffer,ipstr,0);
+        break;
+      }
+        case 8:
+      {
+        show_sharedfile_to_client(newsockfd,buffer,ipstr);
+        break;
+      }
 			case 9:
 			{
 				deletefile(newsockfd,buffer,ipstr);
 				break;
 			}
-			case 7:
-			{
-				send_to_client(newsockfd,buffer,ipstr,0);
-				break;
-			}
+		
+
 			case 10:
 			{
 				clear_session(newsockfd,buffer,ipstr);

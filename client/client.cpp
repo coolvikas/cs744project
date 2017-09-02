@@ -79,7 +79,7 @@ int send_file(int sock, char *file_name){
   
     while( (read_bytes = read(f, send_buf, BUFFER_SIZE)) > 0 )
     {   
-        printf("----------------------------------------------\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b                                  ");
+    	printf("--\b");
         if( (sent_bytes = send(sock, send_buf, read_bytes,0))< read_bytes )
         {
             error("send error");
@@ -88,6 +88,7 @@ int send_file(int sock, char *file_name){
         sent_count++;
         sent_file_size += sent_bytes;
     }
+   cout<<endl;
     close(f);
   } /* end else */
   char response[20];
@@ -298,7 +299,7 @@ int download(int sockfd,int priv_share){
         cout<<"Receiving data from server\n"<<endl;
         //cout<<"test after opening file in write mode"<<endl;
         while ((rcvd_bytes = recv(sockfd, recv_str, BUFFER_SIZE,0)) > 0){
-            printf("----------------------------------------------\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b                                  ");
+            printf("--\b");
             recv_count++;
             rcvd_file_size += rcvd_bytes;
             if (write(f, recv_str, rcvd_bytes) < 0 ){
@@ -314,6 +315,7 @@ int download(int sockfd,int priv_share){
                 break;
             }
         }  //while close
+        cout<<endl;
         close(f); /* close file*/
         cout<<"Client Downloaded "<<rcvd_file_size<<" bytes "<<"\n"<<endl;
         }  // close else if
@@ -328,7 +330,7 @@ int download(int sockfd,int priv_share){
 void showuserfilesystem(char *filename)
 {
 
-  printf("File names and files sizes of your uploaded files shown below: \n");
+  
   ifstream fptr;
   fptr.open(filename);
   if (fptr.is_open())
@@ -396,19 +398,22 @@ void get_filesystem_from_server (int sockfd)
                 
                 int n = write(sockfd,"ack",3);
                 if (n < 0) {
-                    error("ERROR writing to socket");
+                  error("ERROR writing to socket");
                 }
                 break;
             }
         }  //while close
         close(f); /* close file*/
+        printf("File names and files sizes of your uploaded files are: \n");
         showuserfilesystem(filename);
     }
     else if(download_response == 2){
         
         cout<<"NO files are currently uploaded on server.\n"<<endl;
+        
         return;
     }
+
 
    
         
@@ -421,6 +426,87 @@ void sigint_handler(int sig)
     //logout(sockfd);
     //close(sockfd);
 }
+void get_sharedfile_from_server (int sockfd)
+{
+    int choice = 8;
+    char buff[BUFFER_SIZE];
+    memset(&buff,BUFFER_SIZE,0);
+
+    sprintf(buff,"%d %d",choice,sessionid); 
+    //cout<<"buufer is"<<buff<<endl;
+
+    int n = send(sockfd,buff,sizeof(buff),0);
+    if (n < 0) error("get_filesystem_from_server:ERROR writing to socket");
+
+    char download_buffer[BUFFER_SIZE];
+    bzero(download_buffer,BUFFER_SIZE);
+    // read response from server in download_buffer
+    n = read(sockfd,download_buffer,sizeof (download_buffer));
+    if(n<0){
+        cout<<"Error reading server response in download_buffer"<<endl;
+    }
+    //cout<<"download_buffer received from server is :"<<download_buffer<<endl;
+    int download_response;
+    long download_filesize;
+    sscanf(download_buffer,"%d %ld",&download_response,&download_filesize);
+    if (download_response == 0){  // it means the client is not logged in yet.
+        cout<<"Please login first."<<endl;
+        return; 
+    }
+    else if(download_response==1){    // client is logged in and ready to receive file from server.
+        //cout<<"download_filesize="<<download_filesize<<endl;
+        char *filename = (char *)"share.txt";
+        n = write(sockfd,"filesize_received_ack",21);
+        if(n<0){
+                cout<<"Error writing filesize received ack to server socket."<<endl;
+        }
+        //open a file for writing
+        int f; //file descriptor
+        ssize_t rcvd_bytes, rcvd_file_size;
+        int recv_count; 
+        char recv_str[BUFFER_SIZE]; 
+        recv_count = 0; /* number of recv() calls required to receive the file */
+        rcvd_file_size = 0; /* size of received file */
+ 
+        if ( (f = open(filename, O_WRONLY|O_CREAT, 0644)) < 0 )
+        {
+            error("error creating file");
+        }
+       
+        while ((rcvd_bytes = recv(sockfd, recv_str, BUFFER_SIZE,0)) > 0){
+          
+      
+            recv_count++;
+            rcvd_file_size += rcvd_bytes;
+            if (write(f, recv_str, rcvd_bytes) < 0 ){
+             error("error writing to file");
+            }  
+            if(rcvd_file_size == download_filesize)
+            {
+                
+                int n = write(sockfd,"ack",3);
+                if (n < 0) {
+                  error("ERROR writing to socket");
+                }
+                break;
+            }
+        }  //while close
+        close(f); /* close file*/
+        printf("File names and names of users having shared files are: \n");
+        showuserfilesystem(filename);
+    }
+    else if(download_response == 2){
+        
+        cout<<"NO files are currently uploaded on server.\n"<<endl;
+        
+        return;
+    }
+
+
+   
+        
+
+}  // get_sharedfile_from_server() closed
 
 void deletefile(int sockfd){  // deletes a file from backend and other places
     char delete_buffer[BUFFER_SIZE];
@@ -515,8 +601,8 @@ int main(int argc, char *argv[]){
 
       printf("5.Downlaod File\n");
       printf("6.Share files\n");
-      printf("7.Downlaod a file from other user\n");
-
+      printf("7.Downlaod a file shared by other users\n");
+      printf("8.Check shared files\n");
       printf("9.Delete file\n");
 
       printf("10.Logout\n\n");
@@ -557,7 +643,7 @@ int main(int argc, char *argv[]){
           }
           if(status == 2)
           {
-            printf("You are already logged in with session id.PLease do other operations.\n\n");
+            printf("You are already logged in with session id %d.PLease do other operations.\n\n",sessionid);
           }
           break;
         }
@@ -621,6 +707,11 @@ int main(int argc, char *argv[]){
         	int flag = download(sockfd,0);
 
           break;
+        }
+        case 8:
+        {
+        	 get_sharedfile_from_server(sockfd);
+        	 break;
         }
         case 9:
         {
