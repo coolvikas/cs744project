@@ -29,9 +29,9 @@ void error(const char *msg){
 char* loginuser(){
   char *buffer=(char *)(malloc(sizeof(char)*BUFFER_SIZE));
   char uname[20], password[20];
-  printf("                Enter username: " );
+  printf("Enter username: " );
   scanf("%s",uname );
-  printf("                Enter password: " );
+  printf("Enter password: " );
   scanf("%s",password );
   printf("\n");
   bzero(buffer,256);
@@ -49,7 +49,7 @@ char* signupuser(){
   printf("Enter password: " );
   scanf("%s",password );
   bzero(buffer,256);
-  printf("uname and password entered are : %s %s\n",uname,password );
+  
   int choice=2;
   sprintf(buffer,"%d %s %s",choice,uname,password);
   return buffer;
@@ -78,7 +78,8 @@ int send_file(int sock, char *file_name){
     printf("Sending file: %s\n", file_name);
   
     while( (read_bytes = read(f, send_buf, BUFFER_SIZE)) > 0 )
-    {
+    {   
+        printf("----------------------------------------------\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b                                  ");
         if( (sent_bytes = send(sock, send_buf, read_bytes,0))< read_bytes )
         {
             error("send error");
@@ -92,8 +93,8 @@ int send_file(int sock, char *file_name){
   char response[20];
   bzero(response,20);
   int n = read(sock,response,20);
-  cout<<"response from server after sending all chunks at client end is "<<response<<endl;
-  printf("Uploaded %d bytes to server in %d send(s)\n\n",sent_file_size, sent_count);
+  
+  printf("Uploaded %d bytes to server.\n\n",sent_file_size);
 }
 
 
@@ -102,10 +103,10 @@ int send_file(int sock, char *file_name){
 
 int upload(int sockfd){
   char  filename[50];
-  
+  cout << "Enter filename to upload:";
   cin>>filename;
   if( access( filename, F_OK ) == -1 ) {  
-    cout << "File is not present in your current directory" << endl;
+    cout << "File is not present in your current directory.\n\n" << endl;
     return 0;
   }
   char buffer[BUFFER_SIZE];
@@ -114,9 +115,9 @@ int upload(int sockfd){
   int n;
   FILE *fptr;
   fptr=fopen(filename,"r");
-  cout<<"fptr"<<fptr;
+  
   if(fptr==NULL){
-    error("NO such filename exists");
+    error("NO such filename exists\n\n");
     return 0;
   }
   fclose(fptr);
@@ -124,13 +125,13 @@ int upload(int sockfd){
   fptr1 = fopen(filename,"r");
   fseek(fptr1,0, SEEK_END);
   unsigned long file_len =(unsigned long)ftell(fptr1);
-  printf("length of file is%ld\n",file_len);
+ 
   fseek(fptr1,0,SEEK_SET);
   fclose(fptr1);
 
 
   sprintf(buffer,"%d %d %s %ld",uploadfilenamecode,sessionid,filename,file_len);
-  printf("upload():Value before writing  buffer is:%s\n",buffer );
+ 
   n = write(sockfd,buffer,strlen(buffer));
   if(n<0){
       error("ERROR writing to socket");
@@ -140,23 +141,23 @@ int upload(int sockfd){
   if(n<0){
       error("ERROR reading from socket");
   }
-  cout<<"upload():reponse in buffer from server is:"<<buffer<<endl;
+  
   int uploadresponse;
   sscanf(buffer,"%d",&uploadresponse);
   if(uploadresponse==1){
-    cout<<"Session ID matched at server. Starting file upload to server."<<endl;
+    cout<<"Starting file upload to server.\n\n"<<endl;
     send_file(sockfd,filename);
 
     // function to upload file 
   }
   else if(uploadresponse == 2) {
-    cout<<"File is already present in the file system.";
+    cout<<"File is already present in the file system.\n\n";
 
     return 0;
   }
   else if(uploadresponse == 0)
   {
-    cout<<"session id did not match.please login first.";
+    cout<<"session id did not match.please login first.\n\n";
 
     return 0;
   }
@@ -169,13 +170,13 @@ void logout(int sockfd){
     //delete metadat file here
     string filename = "metadata";
     if( access( filename.c_str(), F_OK ) != -1 ){  // means metafile is present so delete it
-        cout<<"inside access to delete metadata file at client end."<<endl;
+        //cout<<"inside access to delete metadata file at client end."<<endl;
         
         if( remove( filename.c_str() ) != 0 ){
             perror( "Error deleting file" );
         }
         else{
-            puts( "File successfully deleted" );
+            puts( "File successfully deleted.\n\n" );
         }   
         
     }  // access if closed
@@ -200,7 +201,7 @@ void logout(int sockfd){
         cout<<"User successfully logged out from system."<<endl;
     }
     else{
-        cout<<"U are not logged in."<<endl;
+        cout<<"You are not logged in.\n\n"<<endl;
     }
     close(sockfd);
     exit(0);
@@ -211,7 +212,7 @@ int share(int sockfd)
 {
 	char filename[50];
     bzero(filename,sizeof filename);
-    cout<<"Enter filename : ";
+    cout<<"Enter filename:";
     cin>>filename;
     char share_buffer[BUFFER_SIZE];
 
@@ -219,12 +220,23 @@ int share(int sockfd)
 
     int choice =6;
     sprintf(share_buffer,"%d %d %s",choice,sessionid,filename);
-    int n = write(sockfd,share_buffer,strlen(share_buffer));
+    int n;
+   
+    n = write(sockfd,share_buffer,strlen(share_buffer));
     if(n<0)
         cout<<"Error writing to share_buffer socket to server"<<endl;
-
-
     
+    char feedback[BUFFER_SIZE];
+    n = recv(sockfd,feedback,sizeof(feedback),0); 
+   
+    int ack;
+    sscanf(feedback,"%d",&ack);
+    if(!ack)
+      cout << "File has been shared successfully.\n\n";
+    else if(ack == 1)
+      cout << "You have not uploaded this file before.Please upload it first.\n\n";
+    else if(ack == 2)
+      cout << "You have already shared the file.\n\n";
 
 }
 
@@ -259,11 +271,11 @@ int download(int sockfd,int priv_share){
     long download_filesize;
     sscanf(download_buffer,"%d %ld",&download_response,&download_filesize);
     if(download_response==0){
-        cout<<"Sorry you are not logged in. Please login first."<<endl;
+        cout<<"Sorry you are not logged in. Please login first.\n\n"<<endl;
         return -1 ;
     }
     else if (download_response==1){
-        cout<<"Requested file is found at server with size ="<<download_filesize<<" Bytes !!"<<endl;
+        cout<<"Requested file is found at server with size "<<download_filesize<<" Bytes\n"<<endl;
         // file match is found on server and filesize is received so ack server that client is ready to download file.
         int n = write(sockfd,"filesize_received_ack",21);
         if(n<0){
@@ -281,12 +293,98 @@ int download(int sockfd,int priv_share){
         {
             error("error creating file");
         }
-        cout<<"successfully opened file for writing."<<endl;
+       // cout<<"successfully opened file for writing."<<endl;
 
-        cout<<"Receiving data from server.."<<endl;
+        cout<<"Receiving data from server\n"<<endl;
         //cout<<"test after opening file in write mode"<<endl;
         while ((rcvd_bytes = recv(sockfd, recv_str, BUFFER_SIZE,0)) > 0){
-            cout<<".";
+            printf("----------------------------------------------\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b\b                                  ");
+            recv_count++;
+            rcvd_file_size += rcvd_bytes;
+            if (write(f, recv_str, rcvd_bytes) < 0 ){
+             error("error writing to file");
+            }  
+            if(rcvd_file_size == download_filesize)
+            {
+                
+                int n = write(sockfd,"ack",3);
+                if (n < 0) {
+                    error("ERROR writing to socket");
+                }
+                break;
+            }
+        }  //while close
+        close(f); /* close file*/
+        cout<<"Client Downloaded "<<rcvd_file_size<<" bytes "<<"\n"<<endl;
+        }  // close else if
+    else if(download_response == 2){
+        cout<<"Requested file is not found in the File system. Please upload first.\n"<<endl;
+    }
+
+
+
+} // close download
+
+void showuserfilesystem(char *filename)
+{
+
+  printf("File names and files sizes of your uploaded files shown below: \n");
+  ifstream fptr;
+  fptr.open(filename);
+  if (fptr.is_open())
+        cout << fptr.rdbuf() << endl;;
+  remove(filename);
+}
+
+void get_filesystem_from_server (int sockfd)
+{
+    int choice = 4;
+    char buff[BUFFER_SIZE];
+    memset(&buff,BUFFER_SIZE,0);
+
+    sprintf(buff,"%d %d",choice,sessionid); 
+    //cout<<"buufer is"<<buff<<endl;
+
+    int n = send(sockfd,buff,sizeof(buff),0);
+    if (n < 0) error("get_filesystem_from_server:ERROR writing to socket");
+
+    char download_buffer[BUFFER_SIZE];
+    bzero(download_buffer,BUFFER_SIZE);
+    // read response from server in download_buffer
+    n = read(sockfd,download_buffer,sizeof (download_buffer));
+    if(n<0){
+        cout<<"Error reading server response in download_buffer"<<endl;
+    }
+    //cout<<"download_buffer received from server is :"<<download_buffer<<endl;
+    int download_response;
+    long download_filesize;
+    sscanf(download_buffer,"%d %ld",&download_response,&download_filesize);
+    if (download_response == 0){  // it means the client is not logged in yet.
+        cout<<"Please login first."<<endl;
+        return; 
+    }
+    else if(download_response==1){    // client is logged in and ready to receive file from server.
+        //cout<<"download_filesize="<<download_filesize<<endl;
+        char *filename = (char *)"metadata";
+        n = write(sockfd,"filesize_received_ack",21);
+        if(n<0){
+                cout<<"Error writing filesize received ack to server socket."<<endl;
+        }
+        //open a file for writing
+        int f; //file descriptor
+        ssize_t rcvd_bytes, rcvd_file_size;
+        int recv_count; 
+        char recv_str[BUFFER_SIZE]; 
+        recv_count = 0; /* number of recv() calls required to receive the file */
+        rcvd_file_size = 0; /* size of received file */
+ 
+        if ( (f = open(filename, O_WRONLY|O_CREAT, 0644)) < 0 )
+        {
+            error("error creating file");
+        }
+       
+        while ((rcvd_bytes = recv(sockfd, recv_str, BUFFER_SIZE,0)) > 0){
+          
       
             recv_count++;
             rcvd_file_size += rcvd_bytes;
@@ -304,103 +402,15 @@ int download(int sockfd,int priv_share){
             }
         }  //while close
         close(f); /* close file*/
-        cout<<"Client Downloaded:"<<rcvd_file_size<<" bytes in "<<recv_count<<" recv(s)\n"<<endl;
-        }  // close else if
-    else if(download_response == 2){
-        cout<<"Requested file is not found in the File system. Please upload first."<<endl;
-    }
-
-
-
-} // close download
-
-void showuserfilesystem(char *filename)
-{
-  ifstream fptr;
-  fptr.open(filename);
-  if (fptr.is_open())
-        cout << fptr.rdbuf();
-  remove(filename);
-}
-
-void get_filesystem_from_server (int sockfd)
-{
-    int choice = 4;
-    char buff[BUFFER_SIZE];
-    memset(&buff,BUFFER_SIZE,0);
-
-    sprintf(buff,"%d %d",choice,sessionid); 
-    cout<<"buufer is"<<buff<<endl;
-
-    int n = send(sockfd,buff,sizeof(buff),0);
-    if (n < 0) error("get_filesystem_from_server:ERROR writing to socket");
-
-    char download_buffer[BUFFER_SIZE];
-    bzero(download_buffer,BUFFER_SIZE);
-    // read response from server in download_buffer
-    n = read(sockfd,download_buffer,sizeof (download_buffer));
-    if(n<0){
-        cout<<"Error reading server response in download_buffer"<<endl;
-    }
-    cout<<"download_buffer received from server is :"<<download_buffer<<endl;
-    int download_response;
-    long download_filesize;
-    sscanf(download_buffer,"%d %ld",&download_response,&download_filesize);
-    if (download_response == 0){  // it means the client is not logged in yet.
-        cout<<"Please login first."<<endl;
-        return; 
-    }
-    else if(download_response==1){    // client is logged in and ready to receive file from server.
-        cout<<"download_filesize="<<download_filesize<<endl;
-        char *filename = (char *)"metadata";
-        n = write(sockfd,"filesize_received_ack",21);
-        if(n<0){
-                cout<<"Error writing filesize_received_ack to server socket."<<endl;
-        }
-        //open a file for writing
-        int f; //file descriptor
-        ssize_t rcvd_bytes, rcvd_file_size;
-        int recv_count; 
-        char recv_str[BUFFER_SIZE]; 
-        recv_count = 0; /* number of recv() calls required to receive the file */
-        rcvd_file_size = 0; /* size of received file */
- 
-        if ( (f = open(filename, O_WRONLY|O_CREAT, 0644)) < 0 )
-        {
-            error("error creating file");
-        }
-        cout<<"successfully opened file for writing."<<endl;
-
-        cout<<"Receiving data from server.."<<endl;
-        //cout<<"test after opening file in write mode"<<endl;
-        while ((rcvd_bytes = recv(sockfd, recv_str, BUFFER_SIZE,0)) > 0){
-            cout<<".";
-      
-            recv_count++;
-            rcvd_file_size += rcvd_bytes;
-            if (write(f, recv_str, rcvd_bytes) < 0 ){
-             error("error writing to file");
-            }  
-            if(rcvd_file_size == download_filesize)
-            {
-                cout << "in break condition" << rcvd_file_size << " " << download_filesize << endl;
-                int n = write(sockfd,"ack",3);
-                if (n < 0) {
-                    error("ERROR writing to socket");
-                }
-                break;
-            }
-        }  //while close
-        close(f); /* close file*/
         showuserfilesystem(filename);
     }
     else if(download_response == 2){
         
-        cout<<"NO files are currently uploaded on server."<<endl;
+        cout<<"NO files are currently uploaded on server.\n"<<endl;
         return;
     }
 
-    cout<<"get_filesystem_from_server() closed."<<endl;
+   
         
 
 }  // get_filesystem_from_server() closed
@@ -433,15 +443,15 @@ void deletefile(int sockfd){  // deletes a file from backend and other places
     }
     sscanf(delete_buffer,"%d",&response);
     if(response == 0){
-        cout<<"Sorry you are not logged in."<<endl;
+        cout<<"Sorry you are not logged in.\n"<<endl;
         return;
     }
     else if(response == 1){
-        cout<<"File is successfully deleted on server."<<endl;
+        cout<<"File is successfully deleted.\n"<<endl;
         return;
     }
     else if(response == 2){
-        cout<<"Sorry the requested file does not exist on server."<<endl;
+        cout<<"Sorry the requested file does not exist on server.\n"<<endl;
         return;
     }
 
@@ -491,27 +501,27 @@ int main(int argc, char *argv[]){
     if(connect(sockfd,(struct sockaddr *)&server_addr,sizeof(server_addr))<0){
       error("ERROR connecting");
     }
-     printf("      ==================================================================== Welcome To Univeral File Backup System =======================================================================================\n");
+     printf("Welcome To Universal File Backup System!\n\n");
     int choice;
     do {
     /* code */
      
 
-      printf("\n      Please select an option: (0 to exit)\n\n" );
-      printf("                1.Login\n\n" );
-      printf("                2.Signup\n\n" );
-      printf("                3.Upload Files\n\n");
-      printf("                4.Check File system\n\n");
+      printf("\nPlease select an option: (0 to exit)\n\n" );
+      printf("1.Login\n" );
+      printf("2.Signup\n" );
+      printf("3.Upload Files\n");
+      printf("4.Check File system\n");
 
-      printf("                5.Downlaod File\n\n");
-      printf("                6.Share files\n\n");
-      printf("                7.Downlaod a file from other user\n\n");
+      printf("5.Downlaod File\n");
+      printf("6.Share files\n");
+      printf("7.Downlaod a file from other user\n");
 
-      printf("                9.Delete file\n\n");
+      printf("9.Delete file\n");
 
-      printf("                10.Logout\n\n");
+      printf("10.Logout\n\n");
      
-      printf("                Your choice is:");
+      printf("Your choice is:");
       scanf("%d",&choice );
       printf("\n");
       switch(choice)
@@ -537,17 +547,17 @@ int main(int argc, char *argv[]){
           int status;
           sscanf(buffer,"%d %d",&status,&sessionid);
           if(status == 1){
-            printf("                Welcome!You are now logged in.\n");
+            printf("Welcome!You are now logged in.\n");
             //cout<<"Your session id is :"<<sessionid << endl;
           }
           else if(status ==0){
-            printf("                Sorry!User id or password is wrong.\n" );
+            printf("Sorry! User id or password is wrong.\n\n" );
 
-             printf("               Try to Log in again.\n" );
+            printf("Try to Log in again or Signup First.\n\n" );
           }
           if(status == 2)
           {
-            printf("               You are already logged in with session id.PLease do other operations.\n");
+            printf("You are already logged in with session id.PLease do other operations.\n\n");
           }
           break;
         }
@@ -556,7 +566,7 @@ int main(int argc, char *argv[]){
         {
             char *buffer1;
             buffer1 = signupuser();;
-            printf("signupuser():Value before writing buffer is:%s\n",buffer1 );
+            //printf("signupuser():Value before writing buffer is:%s\n",buffer1 );
             n = write(sockfd,buffer1,strlen(buffer1));
             if(n<0){
               error("ERROR writing to socket");
@@ -568,15 +578,15 @@ int main(int argc, char *argv[]){
               error("ERROR reading from socket");
             }
             if(!strcmp(buffer,"1")){
-              printf("Client is successfully signed up at server end. U may login now.\n");
+              printf("Client is successfully signed up at server end. U may login now.\n\n");
             }
             else if(!strcmp(buffer,"0")){
 
-              printf("Username already exists. Please choose a different username and password.\n" );
+              printf("Username already exists. Please choose a different username and password.\n\n" );
             }
             else if(!strcmp(buffer,"2")){
 
-              printf("U are already logged in\n" );
+              printf("You are already logged in.\n\n" );
             }
             break;
         }
@@ -625,13 +635,7 @@ int main(int argc, char *argv[]){
 
         }
 
-         default:
-        {
-          printf("Enter a proper command\n");
         
-          
-        }
-
       } // switch closed
 
     }while(choice!=0);
