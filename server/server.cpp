@@ -25,7 +25,8 @@
 using namespace std;
 map <char*, int> ip_map_sessionid;
 map <char*, string>ip_map_uname;
-
+char *backend_ip;
+char *backend_port;
 struct clientArgs {
     int socket;
 };
@@ -274,8 +275,8 @@ int connect_to_backend(void)
                     *p;    // Used to iterate over this list
     /* Host and port */
   	const char *host, *port;
-  	host = "127.0.0.1";
-  	port = "23300";
+  	host = backend_ip;
+   	 port = backend_port;
   	memset(&hints, 0, sizeof(hints));
   	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
@@ -1613,6 +1614,8 @@ void *service_single_client(void *args){
 
 int main(int argc, char *argv[]){
 	/* The pthread_t type is a struct representing a single thread. */
+  backend_ip = argv[2];
+  backend_port = argv[3];
   pthread_t client_thread;
 
   int sockfd, newsockfd, portno, x;
