@@ -16,6 +16,7 @@
 #include "fstream"
 #define BUFFER_SIZE 256
 int sessionid;
+int sockfd;
 
 using namespace std;
 void error(const char *msg){
@@ -76,15 +77,10 @@ int send_file(int sock, char *file_name){
   else /* open file successful */
   {
     printf("Sending file: %s\n", file_name);
-  
+ 
     while( (read_bytes = read(f, send_buf, BUFFER_SIZE)) > 0 )
-    {   
-    	printf("--\b");
-        if( (sent_bytes = send(sock, send_buf, read_bytes,0))< read_bytes )
-        {
-            error("send error");
-            return -1;
-        }
+    {
+    	printf("-");
         sent_count++;
         sent_file_size += sent_bytes;
     }
@@ -299,7 +295,7 @@ int download(int sockfd,int priv_share){
         cout<<"Receiving data from server\n"<<endl;
         //cout<<"test after opening file in write mode"<<endl;
         while ((rcvd_bytes = recv(sockfd, recv_str, BUFFER_SIZE,0)) > 0){
-            printf("--\b");
+            printf("-\b");
             recv_count++;
             rcvd_file_size += rcvd_bytes;
             if (write(f, recv_str, rcvd_bytes) < 0 ){
@@ -423,7 +419,7 @@ void get_filesystem_from_server (int sockfd)
 void sigint_handler(int sig)
 {
     write(0, "Ahhh! SIGINT!\n", 14);
-    //logout(sockfd);
+    logout(sockfd);
     //close(sockfd);
 }
 void get_sharedfile_from_server (int sockfd)
@@ -544,6 +540,8 @@ void deletefile(int sockfd){  // deletes a file from backend and other places
 
 
 }
+
+
 int main(int argc, char *argv[]){
     void sigint_handler(int sig); /* prototype */
     
@@ -558,7 +556,7 @@ int main(int argc, char *argv[]){
         exit(1);
     }
 
-    int sockfd, portno ,n;
+    int portno ,n;
 
     struct sockaddr_in server_addr;
     struct hostent *server;
@@ -589,11 +587,11 @@ int main(int argc, char *argv[]){
     }
      printf("Welcome To Universal File Backup System!\n\n");
     int choice;
-    do {
+    while (true) {
     /* code */
      
 
-      printf("\nPlease select an option: (0 to exit)\n\n" );
+      printf("\nPlease select an option: (10 to exit)\n\n" );
       printf("1.Login\n" );
       printf("2.Signup\n" );
       printf("3.Upload Files\n");
@@ -605,11 +603,18 @@ int main(int argc, char *argv[]){
       printf("8.Check shared files\n");
       printf("9.Delete file\n");
 
-      printf("10.Logout\n\n");
+      printf("10.Logout / Exit\n\n");
      
       printf("Your choice is:");
-      scanf("%d",&choice );
-      printf("\n");
+//      scanf("%d", &choice);
+	cin >> choice;
+	if (cin.fail()) {
+		cout << "Please enter a correct choice." << endl;
+		cin.clear();
+		cin.ignore(256, '\n');
+		continue;
+	}
+	cout << "Choice is: " << choice << endl;
       switch(choice)
       {
 
@@ -725,11 +730,17 @@ int main(int argc, char *argv[]){
             break;
 
         }
+	default:
+	{
+		cout << "Please enter a correct choice." << endl;
+		cin.clear();
+		break;
+	}
 
         
       } // switch closed
 
-    }while(choice!=0);
+    }
   close(sockfd);
   return 0;
 }  // main() closed

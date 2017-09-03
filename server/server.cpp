@@ -273,9 +273,24 @@ int connect_to_backend(void)
                     *res,  // Used to return the list of addrinfo's
                     *p;    // Used to iterate over this list
     /* Host and port */
-  	const char *host, *port;
-  	host = "127.0.0.1";
-  	port = "23300";
+  	string _host = "", _port = "";
+	FILE *confFile = fopen("server.conf", "r");
+	if (!confFile) {
+		cout << "Configuration file not found!!";
+		exit(-1);
+	}
+	char line[50];
+  	const char *host;
+  	const char *port;
+	char *key, value;
+	while(fgets(line, sizeof(line), confFile) != NULL) {
+		sscanf("%s%s", key, value);
+		if (strcmp(key, "backend.ip") == 0)
+			memcpy(host, value, sizeof(host));
+		else if (strcmp(key, "backend.port") == 0)
+			memcpy(port, value, sizeof(port));
+	}
+	fclose(confFile);
   	memset(&hints, 0, sizeof(hints));
   	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
@@ -1389,7 +1404,7 @@ void deletefile(int newsockfd, char delete_buffer[BUFF_SIZE],char clientip[50]){
 		if( access( metafile.c_str(), F_OK ) != -1 ) {   
 			// means meta file is present. open it find the filename and delete.
 			//FILE *fptr = fopen(metafile,"w");
-			cout<<"metafile ="<<metafile<<" is presnt"<<endl;
+			cout<<"metafile ="<<metafile<<" is present"<<endl;
 			feedback_to_client = deleteFilename(file_to_delete,metafile.c_str());
 			int n=getFileSize(metafile.c_str());
 			if(n==0){
