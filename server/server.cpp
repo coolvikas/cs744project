@@ -25,7 +25,8 @@
 using namespace std;
 map <char*, int> ip_map_sessionid;
 map <char*, string>ip_map_uname;
-
+char *backend_ip;
+char *backend_port;
 struct clientArgs {
     int socket;
 };
@@ -1628,6 +1629,8 @@ void *service_single_client(void *args){
 
 int main(int argc, char *argv[]){
 	/* The pthread_t type is a struct representing a single thread. */
+  backend_ip = argv[2];
+  backend_port = argv[3];
   pthread_t client_thread;
 
   int sockfd, newsockfd, portno, x;

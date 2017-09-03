@@ -77,10 +77,15 @@ int send_file(int sock, char *file_name){
   else /* open file successful */
   {
     printf("Sending file: %s\n", file_name);
- 
+  printf("-----------------------------------------------------------");
     while( (read_bytes = read(f, send_buf, BUFFER_SIZE)) > 0 )
     {
-    	printf("-");
+    	
+        if( (sent_bytes = send(sock, send_buf, read_bytes,0))< read_bytes )
+        {
+            error("send error");
+            return -1;
+        }
         sent_count++;
         sent_file_size += sent_bytes;
     }
@@ -91,7 +96,7 @@ int send_file(int sock, char *file_name){
   bzero(response,20);
   int n = read(sock,response,20);
   
-  printf("Uploaded %d bytes to server.\n\n",sent_file_size);
+  printf("\nUploaded %d bytes to server.\n\n",sent_file_size);
 }
 
 
@@ -294,6 +299,7 @@ int download(int sockfd,int priv_share){
 
         cout<<"Receiving data from server\n"<<endl;
         //cout<<"test after opening file in write mode"<<endl;
+	 printf("-----------------------------------------------------------");
         while ((rcvd_bytes = recv(sockfd, recv_str, BUFFER_SIZE,0)) > 0){
             printf("-\b");
             recv_count++;
@@ -313,7 +319,7 @@ int download(int sockfd,int priv_share){
         }  //while close
         cout<<endl;
         close(f); /* close file*/
-        cout<<"Client Downloaded "<<rcvd_file_size<<" bytes "<<"\n"<<endl;
+        cout<<"\nClient Downloaded "<<rcvd_file_size<<" bytes "<<"\n"<<endl;
         }  // close else if
     else if(download_response == 2){
         cout<<"Requested file is not found in the File system. Please upload first.\n"<<endl;

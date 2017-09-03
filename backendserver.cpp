@@ -19,7 +19,7 @@
 
 #define BUFF_SIZE 256
 using namespace std;
-const char *port = "23300";
+const char *port;
 
 /* We will use this struct to pass parameters to one of the threads */
 struct workerArgs
@@ -588,6 +588,7 @@ void *accept_clients(void *args)
 int main(int argc, char *argv[])
 {
     /* The pthread_t type is a struct representing a single thread. */
+    port = argv[1];
     pthread_t server_thread;
 
     
