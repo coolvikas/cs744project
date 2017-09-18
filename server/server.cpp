@@ -23,6 +23,9 @@
 // #define pt(a) (cout << "Test case:" << a << endl)
 #define BUFF_SIZE 256
 using namespace std;
+pthread_mutex_t sharedfilelock;
+const char *shared_file = "share.txt";
+const char *auth_file = "new.txt";
 map <char*, int> ip_map_sessionid;
 map <char*, string>ip_map_uname;
 char *backend_ip;
@@ -45,17 +48,17 @@ void get_client_metadata_file(char filename[30]){
 	string dirname = "metadata";
 	int choice =1;
 	handle_backend(filename,dirname,0,2);
-	//cout<<"get_client_metadata_file() after receiving metadata file from backend";
 }
+
 int generatesessionid(char clientip[50],char uname[50]){
 	srand (time(NULL)); // generate a seed using the current time
 	char *username = (char *)malloc(sizeof(char)*50);
-  username = uname; 
+  	username = uname; 
 	int sessionid = rand(); // generate a random session ID
 	cout<<"generated a new session id for client"<<sessionid<<endl;
 	ip_map_sessionid.insert(pair <char *, int> (clientip, sessionid)); //insert client ip and sessionid into global map
-	// printing map ip_map_sessionid
 	ip_map_uname.insert(pair<char*, string> (clientip,username));
+  	
   	map <char *, int> :: iterator itr;
   	cout << "\nThe map ip_map_sessionid is : \n";
   	cout << "\tKEY\tELEMENT\n";
@@ -93,18 +96,12 @@ void verifyuserlogin(int newsockfd,char buffer[BUFF_SIZE],char clientip[50]){
     char uname[20],passwd[20];
   	int initial;
   	sscanf(buffer,"%d %s %s",&initial,uname,passwd);
-  	//printf("Received username passwd from client is:\n" );
-  	fputs(uname,stdout);
-  	fputs(" ",stdout);
-  	fputs(passwd,stdout);
-  	printf("\n" );
   	FILE *fptr;
   	char funame[20],fpasswd[20];
   	char line[30];
   	int flag =0;
   	int n;
-  	fptr = fopen("new.txt","r");
-  	//cout<<"opened file to find client name"<<endl;
+  	fptr = fopen(auth_file,"r");
   	while(fgets(line,sizeof(line),fptr)!= NULL){
     	sscanf(line,"%s%s",funame,fpasswd);
     	if(!strcmp(uname,funame)){
@@ -114,10 +111,8 @@ void verifyuserlogin(int newsockfd,char buffer[BUFF_SIZE],char clientip[50]){
       		break;
       		}
     	}
-
-  	} //while ends
+	} //while ends
   	fclose(fptr);
-  	//cout<<"client ip count is:"<<ip_map_sessionid.count(clientip)<<endl;
   	if (ip_map_sessionid.count(clientip)>0){
   		flag = 2;
  	}
@@ -168,7 +163,7 @@ int checkcredentials(char uname[20],char passwd[20])
   	char line[30];
   	int flag =0;
   	int n;
-  	fptr = fopen("new.txt","r");
+  	fptr = fopen(auth_file,"r");
   	while(fgets(line,sizeof(line),fptr)!= NULL){
     	sscanf(line,"%s%s",funame,fpasswd);
     	if(!strcmp(uname,funame)){
@@ -214,7 +209,7 @@ void signupuser(int newsockfd,char buff[BUFF_SIZE],char clientip[50])
       
   		FILE *fptr;
       	//cout<<"before open file"<<endl;
-  		fptr = fopen("new.txt","a");
+  		fptr = fopen(auth_file,"a");
       	//cout<<"after open"<<endl;
    
   		char ch[]="\n";
@@ -274,24 +269,9 @@ int connect_to_backend(void)
                     *res,  // Used to return the list of addrinfo's
                     *p;    // Used to iterate over this list
     /* Host and port */
-  	string _host = "", _port = "";
-	FILE *confFile = fopen("server.conf", "r");
-	if (!confFile) {
-		cout << "Configuration file not found!!";
-		exit(-1);
-	}
-	char line[50];
-  	const char *host;
-  	const char *port;
-	char *key, value;
-	while(fgets(line, sizeof(line), confFile) != NULL) {
-		sscanf("%s%s", key, value);
-		if (strcmp(key, "backend.ip") == 0)
-			memcpy(host, value, sizeof(host));
-		else if (strcmp(key, "backend.port") == 0)
-			memcpy(port, value, sizeof(port));
-	}
-	fclose(confFile);
+  	const char *host=backend_ip;
+  	const char *port=backend_port;
+	
   	memset(&hints, 0, sizeof(hints));
   	hints.ai_family = AF_UNSPEC;
 	hints.ai_socktype = SOCK_STREAM;
@@ -475,6 +455,8 @@ void *receive_file_from_backend(void* arguments){
 
   	if(received_file_size_from_backend==0){   // it means file does not exist on backend
   		cout<<"No such file exists on backend"<<endl;
+  		close(socket);
+  		pthread_exit(NULL);
   		return NULL;
   	}
   	else{   // file exists transfer from backend to server
@@ -509,8 +491,9 @@ void *receive_file_from_backend(void* arguments){
   		cout<<"Total bytes received by server is = "<<receivedData<<endl;
   		fclose(receivedFile);
 
-  		close(socket);
+  		
   	} // else ends
+  	close(socket);
   	pthread_exit(NULL);
 }   //receive_file_from_backend() ended
 
@@ -576,7 +559,9 @@ void *receive_share_file_from_backend(void* arguments)
 
   	if(received_file_size_from_backend==0){   // it means file does not exist on backend
   		cout<<"No such file exists on backend"<<endl;
-  		return NULL;
+  		close(socket);
+  		pthread_exit(NULL); 
+		return NULL;
   	}
   	else{   // file exists transfer from backend to server
 	  	n = write(socket,"filesize_received_ack",strlen("filesize_received_ack"));
@@ -609,9 +594,10 @@ void *receive_share_file_from_backend(void* arguments)
 	 
 	  	cout<<"Total bytes received to server is = "<<receivedData<<endl;
 	  	fclose(receivedFile);
-	  	close(socket);
+	  
 
 	} // else ends
+	close(socket);
   	pthread_exit(NULL); 
 
 }
@@ -860,7 +846,7 @@ void send_to_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50],int 
 		  if(priv_share)
     		  memcpy(fname,ip_map_uname[clientip].c_str(),sizeof(fname));
     	else
-    		  memcpy(fname,"share.txt",sizeof(fname));
+    		  memcpy(fname,shared_file,sizeof(fname));
     	int is_file_available=0;
     	cout<<"fname is:"<<fname<<endl;
     	if( access( fname, F_OK ) != -1 )
@@ -962,11 +948,12 @@ void send_to_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50],int 
         }
   			else
         {
-
+        		cout << "before handle backend in else\n";
   				handle_backend((char *)filename,username,filesize,3);
 
-        
+
           FILE *fptr1 = NULL;
+
       		fptr1 = fopen(filename,"r");
       		fseek(fptr1,0, SEEK_END);
       		long file_len =(unsigned long)ftell(fptr1);
@@ -1003,7 +990,7 @@ void send_to_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50],int 
   			     }  // access if closed
           } // else closed
 
-		    }  //is_file_available if closed
+		 }  //is_file_available if closed
 
 
       	else if(is_file_available==0)
@@ -1080,93 +1067,89 @@ void share_filename_with_backend(int newsockfd,char buffer[BUFF_SIZE],char clien
 	memcpy(username,ip_map_uname[clientip].c_str(),sizeof(username));
 	sscanf(buffer,"%d %d %s",&choice,&sessionid,filename);
 
-  int flag = 1;
-  char line[256];
-  char filename_inside_file[50];
-  long filesize;
-  char username_inside_file[50];
-  if( access(username, F_OK ) != -1 )
-      {
-        FILE *fptr = fopen(username,"r");
+  	int flag = checksessionactive(clientip,sessionid);
+  	string fileLocation = shared_file;
+  	
+	if(flag)
+	{
+			char line[256];
+  			char filename_inside_file[50];
+  			long filesize;
+  			char username_inside_file[50];
+  			//means metadata file of user is present at server
+  			if( access(username, F_OK ) != -1 )
+    		{
 
+        		FILE *fptr = fopen(username,"r");
+        		while(fgets(line,sizeof(line),fptr)!= NULL)
+        		{
+                	sscanf(line,"%s %ld",filename_inside_file,&filesize);
+                	if(!strcmp(filename_inside_file,filename))
+                  	{
+                  		flag = 2;  // flag 2 means file is already uploaded
+                  		break;
 
-      
+                  	}
+                  	else{
+                  		flag =50;   // flag 50 means requested file is not yet uploaded
+                  	}
+        		}
+        		fclose(fptr); 
+        		
+        	
+    		}
+    		else{
+    			flag = 10;  // metafile does not exist which means no file is uploaded
+    		}
+    		pthread_mutex_lock (&sharedfilelock);
+			if( (flag==2) && access(shared_file, F_OK ) != -1 )
+    		{
+    			FILE *fptr = fopen(shared_file,"r");
+        		while(fgets(line,sizeof(line),fptr)!= NULL)
+        		{
+        			sscanf(line,"%s %s",filename_inside_file,username_inside_file);
+            		if(!strcmp(filename_inside_file,filename) && !strcmp(username_inside_file,username))
+            		{
+            			flag = 3;   // 3 means file is already shared
+            			break;
+            		}
+        		}
+        		fclose(fptr); 
+    		}
+    		pthread_mutex_unlock (&sharedfilelock);
+			
+  	}
+	else{
+		printf("session match not found at server\n");
+		flag = 0;
+	}
+  			
+  	if((flag!=3)&& (flag==2)&&(flag!=10)&&(flag!=0)  ){
+  		pthread_mutex_lock (&sharedfilelock);
+		FILE *shareFile = NULL;
+    	shareFile = fopen(fileLocation.c_str(),"a");
+    	char ch[] = "\n";
+    	char empty[] = " ";
+    	fwrite(filename,strlen(filename),1,shareFile); 
+    	fwrite(empty,strlen(empty),1,shareFile);
+    	fwrite(username,strlen(username),1,shareFile);
+    	fwrite(ch,strlen(ch),1,shareFile);
+    	fclose(shareFile);
+    	pthread_mutex_unlock (&sharedfilelock);
+    	communicate_with_backend_to_send(choice,filename,0,username);
+    	flag = 5; //means file is successfully shared
+  	}
 
-        while(fgets(line,sizeof(line),fptr)!= NULL)
-              {
-                sscanf(line,"%s %ld",filename_inside_file,&filesize);
-                if(!strcmp(filename_inside_file,filename))
-                  {  
-                    
-                    
-                   flag = 0;
-                  
-                  }
+  	
 
-                } 
-        }
-if( !flag && access("share.txt", F_OK ) != -1 )
-      {
-        
-        FILE *fptr = fopen("share.txt","r");
-
-
-       
-  
-       
-
-        while(fgets(line,sizeof(line),fptr)!= NULL)
-              {
-                sscanf(line,"%s %s",filename_inside_file,username_inside_file);
-                if(!strcmp(filename_inside_file,filename) && !strcmp(username_inside_file,username))
-                  {  
-                    
-                    
-                   flag = 2;
-                  
-                  }
-
-                } 
-        }
-
-
-
-	string fileLocation = "share.txt";
-	
-	
-	
     char buff[BUFF_SIZE];
-
     bzero(buff,sizeof(buff));
     sprintf(buff,"%d",flag);
      
     int n = write(newsockfd,buff,BUFF_SIZE);
     if(n<=0){
       error("share file name with backend error writing to socket.");
-  }
-
-  if(!flag)
-  {
-	if(checksessionactive(clientip,sessionid))
-
-  {
-    FILE *shareFile = NULL;
-    shareFile = fopen(fileLocation.c_str(),"a");
-    char ch[] = "\n";
-    char empty[] = " ";
-    fwrite(filename,strlen(filename),1,shareFile); 
-    fwrite(empty,strlen(empty),1,shareFile);
-    fwrite(username,strlen(username),1,shareFile);
-    fwrite(ch,strlen(ch),1,shareFile);
-    fclose(shareFile);
-    communicate_with_backend_to_send(choice,filename,0,username);
-  }
-	
-	
-	else
-  	printf("session match not found at server\n");
-  	
-}
+  	}
 
 }
 
@@ -1262,7 +1245,7 @@ void show_sharedfile_to_client(int newsockfd,char buffer[BUFF_SIZE],char clienti
     cout<<"Session match found at server."<<endl;
     char fname[50];
     bzero(fname, sizeof fname);
-    string dirname = "share.txt";
+    string dirname = shared_file;
     int choice =1;
     memcpy(fname,dirname.c_str(),sizeof(fname));
     cout<<"fname="<<fname<<endl;
@@ -1399,7 +1382,7 @@ void deletefile(int newsockfd, char delete_buffer[BUFF_SIZE],char clientip[50]){
 	memset(&delete_buffer,0,sizeof((int*)delete_buffer));
 	int feedback_to_client = 0;   // 0 means sesssion is not active , 1 means session is active and file is deleted successfully, 2 requested file is not uploaded on server, 
   string metafile = ip_map_uname[clientip].c_str();
-  string shared_file = "share.txt";
+  string shared_file = shared_file;
 	if(checksessionactive(clientip,sessionid)){
 		
 		if( access( metafile.c_str(), F_OK ) != -1 ) {   

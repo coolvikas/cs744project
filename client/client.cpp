@@ -79,8 +79,9 @@ int send_file(int sock, char *file_name){
     printf("Sending file: %s\n", file_name);
   printf("-----------------------------------------------------------");
     while( (read_bytes = read(f, send_buf, BUFFER_SIZE)) > 0 )
+   
+        
     {
-    	
         if( (sent_bytes = send(sock, send_buf, read_bytes,0))< read_bytes )
         {
             error("send error");
@@ -96,6 +97,8 @@ int send_file(int sock, char *file_name){
   bzero(response,20);
   int n = read(sock,response,20);
   
+
+
   printf("\nUploaded %d bytes to server.\n\n",sent_file_size);
 }
 
@@ -212,7 +215,7 @@ void logout(int sockfd){
 
 int share(int sockfd)
 {
-	char filename[50];
+    char filename[50];
     bzero(filename,sizeof filename);
     cout<<"Enter filename:";
     cin>>filename;
@@ -233,12 +236,15 @@ int share(int sockfd)
    
     int ack;
     sscanf(feedback,"%d",&ack);
-    if(!ack)
+    if(ack==5)
       cout << "File has been shared successfully.\n\n";
-    else if(ack == 1)
+    else if(ack == 50|| ack ==10)
       cout << "You have not uploaded this file before.Please upload it first.\n\n";
-    else if(ack == 2)
+    else if(ack == 3)
       cout << "You have already shared the file.\n\n";
+    else if(ack == 0){
+      cout<<"You are not logged in please login first."<<endl;
+    }
 
 }
 
@@ -301,7 +307,9 @@ int download(int sockfd,int priv_share){
         //cout<<"test after opening file in write mode"<<endl;
 	 printf("-----------------------------------------------------------");
         while ((rcvd_bytes = recv(sockfd, recv_str, BUFFER_SIZE,0)) > 0){
+
             printf("-\b");
+
             recv_count++;
             rcvd_file_size += rcvd_bytes;
             if (write(f, recv_str, rcvd_bytes) < 0 ){
@@ -319,7 +327,9 @@ int download(int sockfd,int priv_share){
         }  //while close
         cout<<endl;
         close(f); /* close file*/
+
         cout<<"\nClient Downloaded "<<rcvd_file_size<<" bytes "<<"\n"<<endl;
+
         }  // close else if
     else if(download_response == 2){
         cout<<"Requested file is not found in the File system. Please upload first.\n"<<endl;
@@ -332,7 +342,7 @@ int download(int sockfd,int priv_share){
 void showuserfilesystem(char *filename)
 {
 
-  
+
   ifstream fptr;
   fptr.open(filename);
   if (fptr.is_open())
@@ -412,13 +422,8 @@ void get_filesystem_from_server (int sockfd)
     else if(download_response == 2){
         
         cout<<"NO files are currently uploaded on server.\n"<<endl;
-        
-        return;
+
     }
-
-
-   
-        
 
 }  // get_filesystem_from_server() closed
 
@@ -597,12 +602,13 @@ int main(int argc, char *argv[]){
     /* code */
      
 
+
       printf("\nPlease select an option: (10 to exit)\n\n" );
+
       printf("1.Login\n" );
       printf("2.Signup\n" );
       printf("3.Upload Files\n");
       printf("4.Check File system\n");
-
       printf("5.Download File\n");
       printf("6.Share files\n");
       printf("7.Downlaod a file shared by other users\n");
@@ -613,14 +619,15 @@ int main(int argc, char *argv[]){
      
       printf("Your choice is:");
 //      scanf("%d", &choice);
-	cin >> choice;
-	if (cin.fail()) {
-		cout << "Please enter a correct choice." << endl;
-		cin.clear();
-		cin.ignore(256, '\n');
-		continue;
-	}
-	cout << "Choice is: " << choice << endl;
+	   cin >> choice;
+	   if (cin.fail()) {
+		    cout << "Please enter a correct choice." << endl;
+		    cin.clear();
+		    cin.ignore(256, '\n');
+		    continue;
+	   }
+	   //cout << "Choice is: " << choice << endl;
+
       switch(choice)
       {
 
@@ -736,12 +743,12 @@ int main(int argc, char *argv[]){
             break;
 
         }
-	default:
-	{
-		cout << "Please enter a correct choice." << endl;
-		cin.clear();
-		break;
-	}
+	     default:
+	     {
+		      cout << "Please enter a correct choice." << endl;
+		      cin.clear();
+		      break;
+	     }
 
         
       } // switch closed
