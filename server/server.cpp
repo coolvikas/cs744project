@@ -1539,7 +1539,7 @@ void *service_single_client(void *args){
 
 
 
-	while(1){
+	while(0){
 		char buffer[BUFF_SIZE];
 		bzero(buffer,BUFF_SIZE);
 		int n;
@@ -1655,7 +1655,7 @@ int main(int argc, char *argv[]){
   	struct clientArgs *wa;
   	wa = (clientArgs *)malloc(sizeof(struct clientArgs));
     wa->socket = newsockfd;
-    cout<<"wa->socket  "<<wa->socket<<endl;
+    //cout<<"wa->socket  "<<wa->socket<<endl;
 
   
   	if (pthread_create(&client_thread, NULL, service_single_client, wa) != 0) 

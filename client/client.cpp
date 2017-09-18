@@ -14,6 +14,7 @@
 #include <stdlib.h> //for exit system call
 #include <unistd.h> //for read and write functions
 #include "fstream"
+#include "LG1.h"
 #define BUFFER_SIZE 256
 int sessionid;
 int sockfd;
@@ -26,36 +27,72 @@ void error(const char *msg){
 
 
 
-
-char* loginuser(){
+void loginuser(int clientsocket,char uname[1],char password[20]){
+  cout<<"inside loginuser()"<<endl;
   char *buffer=(char *)(malloc(sizeof(char)*BUFFER_SIZE));
-  char uname[20], password[20];
-  printf("Enter username: " );
-  scanf("%s",uname );
-  printf("Enter password: " );
-  scanf("%s",password );
-  printf("\n");
   bzero(buffer,256);
   //printf("uname and password entered are : %s %s\n",uname,password );
   int choice=1;
   sprintf(buffer,"%d %s %s",choice,uname,password);
-  return buffer;
-}
-
-char* signupuser(){
-  char *buffer=(char *)(malloc(sizeof(char)*BUFFER_SIZE));
-  char uname[20], password[20];
-  printf("Enter username: " );
-  scanf("%s",uname );
-  printf("Enter password: " );
-  scanf("%s",password );
+  int n = write(clientsocket,buffer,strlen(buffer));
+  if(n<0){
+        error("ERROR writing to socket");
+  }
   bzero(buffer,256);
+  n = read(clientsocket,buffer,255);
+  if(n<0){
+           error("ERROR reading from socket");
+  }
+  int status;
+  sscanf(buffer,"%d %d",&status,&sessionid);
+  if(status == 1){
+       printf("Welcome!You are now logged in.\n");
+  }
+  else if(status ==0){
+  printf("Sorry! User id or password is wrong.\n\n" );
+  printf("Try to Log in again or Signup First.\n\n" );
+  }
+  if(status == 2)
+  {
+    printf("You are already logged in with session id %d.PLease do other operations.\n\n",sessionid);
+  }
+  free(buffer);
   
-  int choice=2;
-  sprintf(buffer,"%d %s %s",choice,uname,password);
-  return buffer;
+}
+
+void signupuser(){
+    char *buffer=(char *)(malloc(sizeof(char)*BUFFER_SIZE));
+    char uname[20], password[20];
+    printf("Enter username: " );
+    scanf("%s",uname );
+    printf("Enter password: " );
+    scanf("%s",password );
+    bzero(buffer,256);
+  
+    int choice=2;
+    sprintf(buffer,"%d %s %s",choice,uname,password);
+    int n = write(sockfd,buffer,strlen(buffer));
+    if(n<0){
+         error("ERROR writing to socket");
+    }
+    bzero(buffer,256);
+    n = read(sockfd,buffer,255);
+    if(n<0){
+           error("ERROR reading from socket");
+    }
+    if(!strcmp(buffer,"1")){
+           printf("Client is successfully signed up at server end. U may login now.\n\n");
+    }
+    else if(!strcmp(buffer,"0")){
+            printf("Username already exists. Please choose a different username and password.\n\n" );
+    }
+    else if(!strcmp(buffer,"2")){
+    printf("You are already logged in.\n\n" );
+    }
+    free(buffer);
 
 }
+
 
 int send_file(int sock, char *file_name){
   int sent_count; /* how many sending chunks, for debugging */
@@ -554,206 +591,7 @@ void deletefile(int sockfd){  // deletes a file from backend and other places
 
 
 int main(int argc, char *argv[]){
-    void sigint_handler(int sig); /* prototype */
-    
-    struct sigaction sa;
-
-    sa.sa_handler = sigint_handler;
-    sa.sa_flags = 0; // or SA_RESTART
-    sigemptyset(&sa.sa_mask);
-
-    if (sigaction(SIGINT, &sa, NULL) == -1) {
-        perror("sigaction");
-        exit(1);
-    }
-
-    int portno ,n;
-
-    struct sockaddr_in server_addr;
-    struct hostent *server;
-
-    if(argc<3){
-      fprintf(stderr,"usage %s hostname port\n", argv[0] );
-      exit(0);
-    }
-    portno = atoi(argv[2]);
-    sockfd = socket(AF_INET,SOCK_STREAM,0);
-    if(sockfd<0){
-      error("Error opening socket");
-    }
-    else
-      printf("\n");
-
-    server = gethostbyname(argv[1]);
-    if(server == NULL){
-      fprintf(stderr, "ERROR no such host\n" );
-      exit(0);
-    }
-    bzero((char *)&server_addr,sizeof(server_addr));
-    server_addr.sin_family = AF_INET;
-    bcopy((char *)server->h_addr, (char *)&server_addr.sin_addr.s_addr,server->h_length);
-    server_addr.sin_port = htons(portno);
-    if(connect(sockfd,(struct sockaddr *)&server_addr,sizeof(server_addr))<0){
-      error("ERROR connecting");
-    }
-     printf("Welcome To Universal File Backup System!\n\n");
-    int choice;
-    while (true) {
-    /* code */
-     
-
-
-      printf("\nPlease select an option: (10 to exit)\n\n" );
-
-      printf("1.Login\n" );
-      printf("2.Signup\n" );
-      printf("3.Upload Files\n");
-      printf("4.Check File system\n");
-      printf("5.Download File\n");
-      printf("6.Share files\n");
-      printf("7.Downlaod a file shared by other users\n");
-      printf("8.Check shared files\n");
-      printf("9.Delete file\n");
-
-      printf("10.Logout / Exit\n\n");
-     
-      printf("Your choice is:");
-//      scanf("%d", &choice);
-	   cin >> choice;
-	   if (cin.fail()) {
-		    cout << "Please enter a correct choice." << endl;
-		    cin.clear();
-		    cin.ignore(256, '\n');
-		    continue;
-	   }
-	   //cout << "Choice is: " << choice << endl;
-
-      switch(choice)
-      {
-
-        
-        case 1: //loginuser
-          {
-          char *buffer1;
-          buffer1 = loginuser();
-          //printf("Value before writing  buffer is:%s\n",buffer1 );
-          n = write(sockfd,buffer1,strlen(buffer1));
-          if(n<0){
-            error("ERROR writing to socket");
-          }
-          char buffer[BUFFER_SIZE];
-          bzero(buffer,256);
-          n = read(sockfd,buffer,255);
-          if(n<0){
-            error("ERROR reading from socket");
-          }
-          //cout<<"buffer received from server after calling login is"<<buffer<<endl;
-          int status;
-          sscanf(buffer,"%d %d",&status,&sessionid);
-          if(status == 1){
-            printf("Welcome!You are now logged in.\n");
-            //cout<<"Your session id is :"<<sessionid << endl;
-          }
-          else if(status ==0){
-            printf("Sorry! User id or password is wrong.\n\n" );
-
-            printf("Try to Log in again or Signup First.\n\n" );
-          }
-          if(status == 2)
-          {
-            printf("You are already logged in with session id %d.PLease do other operations.\n\n",sessionid);
-          }
-          break;
-        }
-
-        case 2: //lets signup first
-        {
-            char *buffer1;
-            buffer1 = signupuser();;
-            //printf("signupuser():Value before writing buffer is:%s\n",buffer1 );
-            n = write(sockfd,buffer1,strlen(buffer1));
-            if(n<0){
-              error("ERROR writing to socket");
-            }
-            char buffer[BUFFER_SIZE];
-            bzero(buffer,256);
-            n = read(sockfd,buffer,255);
-            if(n<0){
-              error("ERROR reading from socket");
-            }
-            if(!strcmp(buffer,"1")){
-              printf("Client is successfully signed up at server end. U may login now.\n\n");
-            }
-            else if(!strcmp(buffer,"0")){
-
-              printf("Username already exists. Please choose a different username and password.\n\n" );
-            }
-            else if(!strcmp(buffer,"2")){
-
-              printf("You are already logged in.\n\n" );
-            }
-            break;
-        }
-        case 3:
-        {
-            int x = upload(sockfd);
-            break;
-
-        }
-        case 4:
-        {
-          get_filesystem_from_server(sockfd);
-          break;
-        }
-        case 5:
-        {
-          
-          int flag = download(sockfd,1);
-          break;
-        }
-
-
-        case 6:
-        {
-        	share(sockfd);
-        	break;
-
-        }
-
-        case 7:
-        {
-        	int flag = download(sockfd,0);
-
-          break;
-        }
-        case 8:
-        {
-        	 get_sharedfile_from_server(sockfd);
-        	 break;
-        }
-        case 9:
-        {
-            deletefile(sockfd);
-            break;
-
-        }
-        case 10:
-        {
-            logout(sockfd);
-            break;
-
-        }
-	     default:
-	     {
-		      cout << "Please enter a correct choice." << endl;
-		      cin.clear();
-		      break;
-	     }
-
-        
-      } // switch closed
-
-    }
-  close(sockfd);
+   
+  spawn_clients();
   return 0;
 }  // main() closed
