@@ -16,8 +16,8 @@
 #include "fstream"
 #include "LG1.h"
 #define BUFFER_SIZE 256
+
 int sessionid;
-int sockfd;
 
 using namespace std;
 void error(const char *msg){
@@ -27,8 +27,9 @@ void error(const char *msg){
 
 
 
-void loginuser(int clientsocket,char uname[1],char password[20]){
-  cout<<"inside loginuser()"<<endl;
+int loginuser(int clientsocket,char uname[1],char password[20]){
+  //cout<<"inside loginuser()"<<endl;
+  int sessionid1;
   char *buffer=(char *)(malloc(sizeof(char)*BUFFER_SIZE));
   bzero(buffer,256);
   //printf("uname and password entered are : %s %s\n",uname,password );
@@ -44,7 +45,7 @@ void loginuser(int clientsocket,char uname[1],char password[20]){
            error("ERROR reading from socket");
   }
   int status;
-  sscanf(buffer,"%d %d",&status,&sessionid);
+  sscanf(buffer,"%d %d",&status,&sessionid1);
   if(status == 1){
        printf("Welcome!You are now logged in.\n");
   }
@@ -57,10 +58,12 @@ void loginuser(int clientsocket,char uname[1],char password[20]){
     printf("You are already logged in with session id %d.PLease do other operations.\n\n",sessionid);
   }
   free(buffer);
+  cout<<"session id recerived from server is:"<<sessionid1<<endl;
+  return sessionid1;
   
 }
 
-void signupuser(){
+void signupuser(int sockfd){
     char *buffer=(char *)(malloc(sizeof(char)*BUFFER_SIZE));
     char uname[20], password[20];
     printf("Enter username: " );
@@ -143,10 +146,9 @@ int send_file(int sock, char *file_name){
 
 //code to upload file to server for backup
 
-int upload(int sockfd){
-  char  filename[50];
-  cout << "Enter filename to upload:";
-  cin>>filename;
+int upload(int sockfd, char  filename[50],int sessionid3){
+ 
+  
   if( access( filename, F_OK ) == -1 ) {  
     cout << "File is not present in your current directory.\n\n" << endl;
     return 0;
@@ -172,7 +174,7 @@ int upload(int sockfd){
   fclose(fptr1);
 
 
-  sprintf(buffer,"%d %d %s %ld",uploadfilenamecode,sessionid,filename,file_len);
+  sprintf(buffer,"%d %d %s %ld",uploadfilenamecode,sessionid3,filename,file_len);
  
   n = write(sockfd,buffer,strlen(buffer));
   if(n<0){
@@ -208,7 +210,7 @@ int upload(int sockfd){
 }  // upload() closed
 
 //to logout the client from server and removes its session also.
-void logout(int sockfd){
+void logout(int sockfd,int sessionid2){
     //delete metadat file here
     string filename = "metadata";
     if( access( filename.c_str(), F_OK ) != -1 ){  // means metafile is present so delete it
@@ -227,7 +229,8 @@ void logout(int sockfd){
     char buffer1[BUFFER_SIZE];
     bzero(buffer1,BUFFER_SIZE);
     int choice = 10;
-    sprintf(buffer1,"%d %d",choice,sessionid);
+    sprintf(buffer1,"%d %d",choice,sessionid2);
+    cout<<"buffer before sending to server is :"<<buffer1<<endl;
     int n = write(sockfd,buffer1,strlen(buffer1));
     if(n<0){
           error("ERROR writing to socket");
@@ -246,8 +249,7 @@ void logout(int sockfd){
         cout<<"You are not logged in.\n\n"<<endl;
     }
     close(sockfd);
-    exit(0);
-
+    
 }  // logout() closed
 
 int share(int sockfd)
@@ -464,12 +466,12 @@ void get_filesystem_from_server (int sockfd)
 
 }  // get_filesystem_from_server() closed
 
-void sigint_handler(int sig)
+ /* void sigint_handler(int sig)
 {
     write(0, "Ahhh! SIGINT!\n", 14);
     logout(sockfd);
     //close(sockfd);
-}
+}    */
 void get_sharedfile_from_server (int sockfd)
 {
     int choice = 8;

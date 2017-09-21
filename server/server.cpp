@@ -24,10 +24,13 @@
 #define BUFF_SIZE 256
 using namespace std;
 pthread_mutex_t sharedfilelock;
+pthread_mutex_t authfilelock;
+pthread_mutex_t maplock;
 const char *shared_file = "share.txt";
 const char *auth_file = "new.txt";
-map <char*, int> ip_map_sessionid;
-map <char*, string>ip_map_uname;
+//map <char*, int> ip_map_sessionid;
+map <int,string> sessionid_map_uname;
+//map <char*, string>ip_map_uname;
 char *backend_ip;
 char *backend_port;
 struct clientArgs {
@@ -43,32 +46,41 @@ void error(const char *msg){
   exit(1);
 }
 void handle_backend(char [],string,long ,int );
-void get_client_metadata_file(char filename[30]){
+void get_client_metadata_file(char filename[20]){
 	// this function will get clients metadta file from backend server if the client logs in successfully and session ID is generated
 	string dirname = "metadata";
-	int choice =1;
-	handle_backend(filename,dirname,0,2);
+	int choice =2;
+	handle_backend(filename,dirname,0,choice);
 }
 
-int generatesessionid(char clientip[50],char uname[50]){
-	srand (time(NULL)); // generate a seed using the current time
-	char *username = (char *)malloc(sizeof(char)*50);
-  	username = uname; 
+int generatesessionid(char uname[20]){
+  
+	//int random = (time(0)); // generate a seed using the current time
+  //cout<<"Current time is = "<<time(0)<<endl;
+	//char *username = (char *)malloc(sizeof(char)*50);
+  //username = uname; 
+  cout<<"original username received is = "<<uname<<endl;
+  string username(uname);
+  username = uname;
+  cout<<"string username is = "<<username<<endl;
+  
 	int sessionid = rand(); // generate a random session ID
 	cout<<"generated a new session id for client"<<sessionid<<endl;
-	ip_map_sessionid.insert(pair <char *, int> (clientip, sessionid)); //insert client ip and sessionid into global map
-	ip_map_uname.insert(pair<char*, string> (clientip,username));
+	//ip_map_sessionid.insert(pair <char *, int> (clientip, sessionid)); //insert client ip and sessionid into global map
+	//ip_map_uname.insert(pair<char*, string> (clientip,username));
+  pthread_mutex_lock (&maplock);
+  sessionid_map_uname.insert(pair <int,string> (sessionid,username));
   	
-  	map <char *, int> :: iterator itr;
-  	cout << "\nThe map ip_map_sessionid is : \n";
-  	cout << "\tKEY\tELEMENT\n";
-  	for (itr = ip_map_sessionid.begin(); itr != ip_map_sessionid.end(); ++itr)
+  	map <int, string> :: iterator itr;
+  	cout << "\nThe map uname_map_sessionid is : \n";
+  	cout << "\tSession ID\tUser ID\n";
+  	for (itr = sessionid_map_uname.begin(); itr != sessionid_map_uname.end(); ++itr)
   	{
         cout  <<  '\t' << itr->first 
               <<  '\t' << itr->second << '\n';
   	}
   	cout<<endl;
-  	map <char *, string > :: iterator itr1;
+  	/*map <char *, string > :: iterator itr1;
   	cout << "\nThe map ip_map_uname is : \n";
   	cout << "\tKEY\tELEMENT\n";
   	for (itr1 = ip_map_uname.begin(); itr1 != ip_map_uname.end(); ++itr1)
@@ -76,19 +88,21 @@ int generatesessionid(char clientip[50],char uname[50]){
         cout  <<  '\t' << itr1->first 
               <<  '\t' << itr1->second << '\n';
   	}
-
-  	cout << endl;
-  	get_client_metadata_file(uname);
+    
+  	cout << endl;  */
+    pthread_mutex_unlock (&maplock);
+  	//get_client_metadata_file(uname);
+    
   	return sessionid;
 }  // generatesessionid() closed
  
-int checksessionactive(char clientip[50],int sessionid){
+int checksessionactive(int sessionid){
 	int sessionactiveflag=0;
-	if (ip_map_sessionid.count(clientip)>0){
-		if(ip_map_sessionid[clientip]==sessionid){
-			sessionactiveflag=1;
-		}
-	}
+  pthread_mutex_lock (&maplock);
+	if (sessionid_map_uname.count(sessionid)>0){
+		  sessionactiveflag=1;
+  }
+  pthread_mutex_unlock (&maplock);
 	return sessionactiveflag;
 }
 
@@ -96,11 +110,13 @@ void verifyuserlogin(int newsockfd,char buffer[BUFF_SIZE],char clientip[50]){
     char uname[20],passwd[20];
   	int initial;
   	sscanf(buffer,"%d %s %s",&initial,uname,passwd);
-  	FILE *fptr;
+  	
   	char funame[20],fpasswd[20];
   	char line[30];
   	int flag =0;
   	int n;
+    pthread_mutex_lock (&authfilelock);
+    FILE *fptr;
   	fptr = fopen(auth_file,"r");
   	while(fgets(line,sizeof(line),fptr)!= NULL){
     	sscanf(line,"%s%s",funame,fpasswd);
@@ -111,17 +127,24 @@ void verifyuserlogin(int newsockfd,char buffer[BUFF_SIZE],char clientip[50]){
       		break;
       		}
     	}
-	} //while ends
+	   } //while ends
   	fclose(fptr);
-  	if (ip_map_sessionid.count(clientip)>0){
+    pthread_mutex_unlock (&authfilelock);
+   /* string username(uname);
+    username = uname;
+    pthread_mutex_lock (&maplock);
+    
+    map<int,string>::iterator itr;
+     itr = sessionid_map_uname.find(uname.c_str());
+  	if (itr != sessionid_map_uname.end()){
   		flag = 2;
- 	}
-
+ 	  }
+    pthread_mutex_unlock (&maplock);  */
   	if(flag ==1 ){
 		cout<<"Generating a session id"<<endl;
-  		int sessionid = generatesessionid(clientip,uname);
-  		cout<<"Generated session ID for client is = "<<sessionid<<endl;
-        bzero(buffer,0);
+  		int sessionid = generatesessionid(uname);
+  		//cout<<"Generated session ID for client is = "<<sessionid<<endl;
+        bzero(buffer,255);
         sprintf(buffer,"%d %d",flag,sessionid);
         n = write(newsockfd,buffer,strlen(buffer));
         if(n<0){
@@ -140,16 +163,19 @@ void verifyuserlogin(int newsockfd,char buffer[BUFF_SIZE],char clientip[50]){
           error("ERROR writing to socket");
         }
   	}
-  	else if(flag == 2){
+  	/*else if(flag == 2){
   		cout<<"Client is already logged in !!"<<endl;
   		bzero(buffer,0);
+      int sid =0;
+/*      pthread_mutex_lock (&maplock);
   		int sid = ip_map_sessionid[clientip];
-  		sprintf(buffer,"%d %d",flag,sid);
+      pthread_mutex_unlock (&maplock);  
+  		sprintf(buffer,"%d",flag);
   	 	n = write(newsockfd,buffer,strlen(buffer));
      	if(n<0){
        		error("ERROR writing to socket");
      	}
-  	}  // else if ends
+  	}  // else if ends  */
   
 }  // verifyuserlogin() ends
 
@@ -163,6 +189,7 @@ int checkcredentials(char uname[20],char passwd[20])
   	char line[30];
   	int flag =0;
   	int n;
+    pthread_mutex_lock (&authfilelock);
   	fptr = fopen(auth_file,"r");
   	while(fgets(line,sizeof(line),fptr)!= NULL){
     	sscanf(line,"%s%s",funame,fpasswd);
@@ -175,6 +202,7 @@ int checkcredentials(char uname[20],char passwd[20])
   	}
 
 	fclose(fptr);
+  pthread_mutex_unlock (&authfilelock);
 	return flag;
 }
 
@@ -182,11 +210,12 @@ void signupuser(int newsockfd,char buff[BUFF_SIZE],char clientip[50])
 {
 	int signupdone;
 	int n;
+  char buffer[BUFF_SIZE];
+  /*pthread_mutex_lock (&maplock);
   	map <char*, int>::iterator it;
   	//cout << "In signup" << endl;
   	it = ip_map_sessionid.find(clientip);
-  	char buffer[BUFF_SIZE];
-  
+  	
 	if (it != ip_map_sessionid.end()){
 		memset(&buffer,0,sizeof((int*) buffer));
  		sprintf(buffer,"2");
@@ -195,8 +224,9 @@ void signupuser(int newsockfd,char buff[BUFF_SIZE],char clientip[50])
       		error("ERROR writing to socket");
     	}
     	return;
-	}
-	else
+	}  */
+ 
+	
 	{
   		char uname[20],passwd[20];
   		int initial;
@@ -206,7 +236,7 @@ void signupuser(int newsockfd,char buff[BUFF_SIZE],char clientip[50])
   		fputs(" ",stdout);
   		fputs(passwd,stdout);
   		printf("\n" );
-      
+      pthread_mutex_lock (&authfilelock);
   		FILE *fptr;
       	//cout<<"before open file"<<endl;
   		fptr = fopen(auth_file,"a");
@@ -229,7 +259,9 @@ void signupuser(int newsockfd,char buff[BUFF_SIZE],char clientip[50])
     		fwrite(ch,strlen(ch),1,fptr);
   		}
   		fclose(fptr);
+      pthread_mutex_unlock (&authfilelock);
   	}
+     pthread_mutex_unlock (&maplock);
     
   	if(signupdone ==1 ){
       	cout<<"Client is signed up at server."<<endl;
@@ -352,16 +384,16 @@ int communicate_with_backend_to_send(int choice,char* file_name,int size,const c
 void *send_file_to_backend(void* arguments){
 
 	//cout<<"inside send_file_to_backend\n"<<endl;
-	cout<<"Sending file_to_backend\n"<<endl;
-  	struct backendArgs *args = (struct backendArgs *)arguments;
-	char toSend[BUFF_SIZE];
-  	bzero(toSend,BUFF_SIZE);
-  	char file_name[50];
-  	bzero(file_name,sizeof file_name);
+	   cout<<"Sending file_to_backend\n"<<endl;
+  	 struct backendArgs *args = (struct backendArgs *)arguments;
+	   char toSend[BUFF_SIZE];
+  	 bzero(toSend,BUFF_SIZE);
+  	 char file_name[50];
+  	 bzero(file_name,sizeof file_name);
 
-  	memcpy(file_name,args->filename,sizeof(file_name));
-  	string username = string(args->userid);
-  	int filesize = args->filesize;
+  	 memcpy(file_name,args->filename,sizeof(file_name));
+  	 string username = string(args->userid);
+  	 int filesize = args->filesize;
   	// update file metadata of user presnet with server.
 
   
@@ -404,7 +436,7 @@ void *send_file_to_backend(void* arguments){
             filename = strtok(file_name, "_");
     		filename = strtok(NULL, "_");  
   			char* filesizeBuffer = (char *)malloc(sizeof(filesize));
-			sprintf(filesizeBuffer,"%d",filesize);
+			   sprintf(filesizeBuffer,"%d",filesize);
   			fwrite(filename,strlen(filename),1,fptr); // EACH ELEMENT IS OF SIZE 1 BYTE TO BE WRITTEN AND THERE ARE SIZEOF(BUFFER) ELEMENTS
     		fwrite(empty,strlen(empty),1,fptr);
     		fprintf(fptr,"%s",filesizeBuffer);
@@ -605,64 +637,71 @@ void *receive_share_file_from_backend(void* arguments)
 
 void handle_backend(char file_name[50],string userId,long filesize,int choice)
 {
-	 //cout << "In handle_backend() file name = " << file_name << endl;
-	 //cout<<"userId="<<userId<<endl<<"filesize="<<filesize<<endl<<"choice="<<choice<<endl;
-  	pthread_t handle_backend;
-    //cout<<"hello1"<<endl;
+	 cout << "In handle_backend() file name = " << file_name << endl;
+	 cout<<"userId="<<userId<<endl<<"filesize="<<filesize<<endl<<"choice="<<choice<<endl;
+  	
+    cout<<"hello1"<<endl;
   	struct backendArgs *args;
-    //cout<<"hello2"<<endl;
-  	args = (backendArgs *)malloc(sizeof(struct backendArgs));
-  	//cout<<"hello3"<<endl;
+    cout<<"hello2"<<endl;
+  	args = (backendArgs *)malloc(sizeof(backendArgs));
+  	cout<<"hello3"<<endl;
     args->userid = userId;
-    //cout<<"args->userid ="<<args->userid<<endl;
+    cout<<"args->userid ="<<args->userid<<endl;
     args->filesize = filesize;
-    //cout<<"args->filesize ="<<args->filesize<<endl;
+    cout<<"args->filesize ="<<args->filesize<<endl;
   	memcpy(args->filename,file_name,sizeof(args->filename));
-  
-  	//cout << "args filename: " << args->filename << endl;
+    pthread_t handle_backend1;
+  	cout << "args filename: " << args->filename << endl;
   	if(choice == 1)
     {
-      	if (pthread_create(&handle_backend, NULL, send_file_to_backend,args) != 0)
+      	if (pthread_create(&handle_backend1, NULL, send_file_to_backend,args) != 0)
       	{
         	error("Could not create a worker thread");
         	free(args);
       	}
-      	pthread_join(handle_backend,NULL);
+        //pthread_detach(handle_backend);
+      	pthread_join(handle_backend1,NULL);
     }
 
   	else if(choice == 2)
     { 
-		if (pthread_create(&handle_backend, NULL, receive_file_from_backend,args) != 0)
+      cout<<"before pthread join in choice 2"<<endl;
+		if (pthread_create(&handle_backend1, NULL, receive_file_from_backend,args) != 0)
       	{
         	error("Could not create a worker thread");
         	free(args);
       	}
-      	pthread_join(handle_backend,NULL);
+        //pthread_detach(handle_backend);
+        cout<<"after pthread join in choice 2"<<endl;
+      	pthread_join(handle_backend1,NULL);
     }
 
     else if(choice == 3)
      { cout << "Inside else if" << endl; 
 
-      if (pthread_create(&handle_backend, NULL, receive_share_file_from_backend,args) != 0)
+      if (pthread_create(&handle_backend1, NULL, receive_share_file_from_backend,args) != 0)
       {
         error("Could not create a worker thread");
         free(args);
       }
-      pthread_join(handle_backend,NULL);
+      //pthread_detach(handle_backend);
+      pthread_join(handle_backend1,NULL);
     }
 
     else if(choice == 9){
-    	if (pthread_create(&handle_backend, NULL, delete_file_from_backend,args) != 0)
+    	if (pthread_create(&handle_backend1, NULL, delete_file_from_backend,args) != 0)
       	{
         	error("Could not create a worker thread");
         	free(args);
       	}
-      	pthread_join(handle_backend,NULL);
+        //pthread_detach(handle_backend);
+      	pthread_join(handle_backend1,NULL);
 
     }
 
-     
+    cout<<"before handle_backend exits"<<endl;
     free(args);
+    //pthread_exit(NULL);
      
 
 }  //handle_backend() closed
@@ -740,9 +779,11 @@ int receive_file(int socket,char file_name[50],string userId,long filesize)
 }  
 
 
-int if_multiples_uploads(char* filename,char clientip[50])
+int if_multiples_uploads(char* filename,int sessionid)
 {
-	string username = ip_map_uname[clientip];
+  pthread_mutex_lock (&maplock);
+	string username =sessionid_map_uname[sessionid];
+  pthread_mutex_unlock (&maplock);
     char filename_inside_file[50];
     char line[50];
     if( access(username.c_str(), F_OK ) != -1 )
@@ -754,8 +795,8 @@ int if_multiples_uploads(char* filename,char clientip[50])
         {
             sscanf(line,"%s %ld",filename_inside_file,&filesize);
             if(!strcmp(filename_inside_file,filename))
-            {  // if filename match found then make a call to backend else return to client saying no such file exists.
-                return 0;
+            {  
+                            return 0; // 0 means such file already exists
             }
         } //while
     }
@@ -771,8 +812,9 @@ void receive_from_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50]
 	long int filesize;
     sscanf(buffer,"%d %d %s %ld",&initial,&sid,filename,&filesize);
     //cout << "In receive_from_client: filename " << filename << endl;	
-  	int sessionactiveflag=checksessionactive(clientip,sid);
-    int iffilemultipleupload=if_multiples_uploads(filename,clientip);
+  	int sessionactiveflag=checksessionactive(sid);
+    //int iffilemultipleupload=if_multiples_uploads(filename,sid);
+    int iffilemultipleupload = 1;
     
   	bzero(buffer,BUFF_SIZE);
     if(sessionactiveflag==1 && iffilemultipleupload == 1)
@@ -780,10 +822,11 @@ void receive_from_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50]
   		printf("session match found at server\n");
   		sprintf(buffer,"%d",sessionactiveflag);
   		n = write(newsockfd,buffer,strlen(buffer));
-		if(n<0)
+		  if(n<0)
         	error("Error writing to socket");
-  	
-    	string username = ip_map_uname[clientip];
+  	   pthread_mutex_lock (&maplock);
+    	string username = sessionid_map_uname[sid];
+      pthread_mutex_unlock (&maplock);
 
     	string fileName = string(username) + "_" + string(filename);
       	//cout << "username: " << username << " filename: " << fileName << endl;
@@ -791,7 +834,7 @@ void receive_from_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50]
     
    	 	if(status){
    	 		// update filename in username metadata file.  
-			handle_backend((char *)fileName.c_str(),username,filesize,1);
+			   handle_backend((char *)fileName.c_str(),username,filesize,1);
     	} //
 
     	else
@@ -832,9 +875,11 @@ void send_to_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50],int 
   	long int filesize=0;
   	sscanf(buffer,"%d %d %s",&initial,&sid,filename);
   	//cout<<"received filename at server to send to client is:"<<filename<<endl;
-  	int sessionactiveflag=checksessionactive(clientip,sid);
+  	int sessionactiveflag=checksessionactive(sid);
   	bzero(buffer,BUFF_SIZE);
-  	string username = ip_map_uname[clientip];
+    pthread_mutex_lock (&maplock);
+  	string username = sessionid_map_uname[sid];
+    pthread_mutex_unlock (&maplock);
   	cout << "Sending file to client:"<< username.c_str() << endl;
   	string fileName = string(username) + "_" + string(filename);
     
@@ -843,10 +888,12 @@ void send_to_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50],int 
     	printf("session match found at server\n");
     	char fname[50];
 		  bzero(fname, sizeof fname);
+      pthread_mutex_lock (&maplock);
 		  if(priv_share)
-    		  memcpy(fname,ip_map_uname[clientip].c_str(),sizeof(fname));
+    		  memcpy(fname,sessionid_map_uname[sid].c_str(),sizeof(fname));
     	else
     		  memcpy(fname,shared_file,sizeof(fname));
+      pthread_mutex_unlock (&maplock);
     	int is_file_available=0;
     	cout<<"fname is:"<<fname<<endl;
     	if( access( fname, F_OK ) != -1 )
@@ -856,6 +903,7 @@ void send_to_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50],int 
     		long filesize;
     		char userid[50];
     		char line[50];
+        pthread_mutex_lock (&sharedfilelock);
     		FILE *fptr = fopen(fname,"r");
       		if(priv_share)
       		{
@@ -886,6 +934,7 @@ void send_to_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50],int 
     			} //while 
     		}
   			fclose(fptr);
+        pthread_mutex_unlock (&sharedfilelock);
   		} // if close
   	
   		
@@ -1024,11 +1073,12 @@ void send_to_client(int newsockfd, char buffer[BUFF_SIZE],char clientip[50],int 
 // clear_session 
 void clear_session(int newsockfd, char buff[BUFF_SIZE], char clientip[50]){
 	int session_cleared=0;
+  cout<<"inside clear_session()"<<endl;
 	int client_sessionid,choice;
 	sscanf(buff,"%d %d",&choice,&client_sessionid);
-	
-	if( access( ip_map_uname[clientip].c_str(), F_OK ) != -1 ){  // means metafile is present so delete it
-		if( remove( ip_map_uname[clientip].c_str() ) != 0 ){
+	pthread_mutex_lock (&maplock);
+	if( access( sessionid_map_uname[client_sessionid].c_str(), F_OK ) != -1 ){  // means metafile is present so delete it
+		if( remove( sessionid_map_uname[client_sessionid].c_str() ) != 0 ){
     		perror( "Error deleting file" );
 		}
   		else{
@@ -1036,14 +1086,13 @@ void clear_session(int newsockfd, char buff[BUFF_SIZE], char clientip[50]){
 		}	
 		
 	}  // access if closed
-	if (ip_map_sessionid.count(clientip)>0){
-		if(ip_map_sessionid[clientip]==client_sessionid){
-			session_cleared=1;
-	 		ip_map_uname.erase (clientip);
-	 		ip_map_sessionid.erase (clientip);
+	if (sessionid_map_uname.count(client_sessionid)>0){
+	     sessionid_map_uname.erase (client_sessionid);
+      session_cleared=1;
 	 		cout<<"Map cleared for user."<<endl;
 		}
-	}
+	
+  pthread_mutex_unlock (&maplock);
 	char buffer[BUFF_SIZE];
 	bzero(buffer,BUFF_SIZE);
 	sprintf(buffer,"%d",session_cleared);
@@ -1064,10 +1113,13 @@ void share_filename_with_backend(int newsockfd,char buffer[BUFF_SIZE],char clien
 	int sessionid;
 	char filename[50];
 	char username[50];
-	memcpy(username,ip_map_uname[clientip].c_str(),sizeof(username));
-	sscanf(buffer,"%d %d %s",&choice,&sessionid,filename);
+  sscanf(buffer,"%d %d %s",&choice,&sessionid,filename);
+  pthread_mutex_lock (&maplock);
+	memcpy(username,sessionid_map_uname[sessionid].c_str(),sizeof(username));
+  pthread_mutex_unlock (&maplock);
+	
 
-  	int flag = checksessionactive(clientip,sessionid);
+  	int flag = checksessionactive(sessionid);
   	string fileLocation = shared_file;
   	
 	if(flag)
@@ -1126,7 +1178,7 @@ void share_filename_with_backend(int newsockfd,char buffer[BUFF_SIZE],char clien
   			
   	if((flag!=3)&& (flag==2)&&(flag!=10)&&(flag!=0)  ){
   		pthread_mutex_lock (&sharedfilelock);
-		FILE *shareFile = NULL;
+		  FILE *shareFile = NULL;
     	shareFile = fopen(fileLocation.c_str(),"a");
     	char ch[] = "\n";
     	char empty[] = " ";
@@ -1158,13 +1210,15 @@ void show_filesystem_to_client(int newsockfd,char buffer[BUFF_SIZE],char clienti
 	cout<<"inside get_filesystem_from_backend()"<<endl;
 	sscanf(buffer,"%d %d",&choice,&sessionid);
 	cout<<"sessionid = "<<sessionid<<endl;
-	if(checksessionactive(clientip,sessionid)){  // means session is active
+	if(checksessionactive(sessionid)){  // means session is active
 		cout<<"Session match found at server."<<endl;
 		char fname[50];
 		bzero(fname, sizeof fname);
 		string dirname = "metadata";
 		int choice =1;
-		memcpy(fname,ip_map_uname[clientip].c_str(),sizeof(fname));
+    pthread_mutex_lock (&maplock);
+		memcpy(fname,sessionid_map_uname[sessionid].c_str(),sizeof(fname));
+    pthread_mutex_unlock (&maplock);
 		if( access( fname, F_OK ) != -1 ) {  //access return value is 0 if the access is permitted, and -1 otherwise.
     			// file exists locally send to client and display
 			FILE *fptr1 = NULL;
@@ -1241,7 +1295,7 @@ void show_sharedfile_to_client(int newsockfd,char buffer[BUFF_SIZE],char clienti
   cout<<"inside show_sharedfile_to_client()"<<endl;
   sscanf(buffer,"%d %d",&choice,&sessionid);
   cout<<"sessionid = "<<sessionid<<endl;
-  if(checksessionactive(clientip,sessionid)){  // means session is active
+  if(checksessionactive(sessionid)){  // means session is active
     cout<<"Session match found at server."<<endl;
     char fname[50];
     bzero(fname, sizeof fname);
@@ -1249,6 +1303,7 @@ void show_sharedfile_to_client(int newsockfd,char buffer[BUFF_SIZE],char clienti
     int choice =1;
     memcpy(fname,dirname.c_str(),sizeof(fname));
     cout<<"fname="<<fname<<endl;
+    pthread_mutex_lock (&sharedfilelock);
     if( access( fname, F_OK ) != -1 ) {  //access return value is 0 if the access is permitted, and -1 otherwise.
           // file exists locally send to client and display
       FILE *fptr1 = NULL;
@@ -1258,7 +1313,7 @@ void show_sharedfile_to_client(int newsockfd,char buffer[BUFF_SIZE],char clienti
         printf("length of file is%ld\n",file_len);
         fseek(fptr1,0,SEEK_SET);
         fclose(fptr1);
-
+        pthread_mutex_unlock (&sharedfilelock);
         char buffer[BUFF_SIZE];
         bzero(buffer,BUFF_SIZE);
         sprintf(buffer,"%d %ld",choice,file_len);
@@ -1381,9 +1436,11 @@ void deletefile(int newsockfd, char delete_buffer[BUFF_SIZE],char clientip[50]){
   //cout<<"choice = "<<choice<<"sessionid="<<sessionid<<endl<<"file_to_delete="<<file_to_delete<<endl;
 	memset(&delete_buffer,0,sizeof((int*)delete_buffer));
 	int feedback_to_client = 0;   // 0 means sesssion is not active , 1 means session is active and file is deleted successfully, 2 requested file is not uploaded on server, 
-  string metafile = ip_map_uname[clientip].c_str();
+  pthread_mutex_lock (&maplock);
+  string metafile = sessionid_map_uname[sessionid].c_str();
+  pthread_mutex_unlock (&maplock);
   string shared_file = shared_file;
-	if(checksessionactive(clientip,sessionid)){
+	if(checksessionactive(sessionid)){
 		
 		if( access( metafile.c_str(), F_OK ) != -1 ) {   
 			// means meta file is present. open it find the filename and delete.
@@ -1539,7 +1596,7 @@ void *service_single_client(void *args){
 
 
 
-	while(0){
+	while(1){
 		char buffer[BUFF_SIZE];
 		bzero(buffer,BUFF_SIZE);
 		int n;

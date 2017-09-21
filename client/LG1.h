@@ -1,36 +1,27 @@
- #include <pthread.h>
- #include <stdio.h>
- #define NUM_THREADS     5
+#include <pthread.h>
+#include <stdio.h>
+#include <iostream>
+using namespace std;
+#define NUM_THREADS     1
 
 
 
-void loginuser(int,char[],char []);
+int loginuser(int,char[],char []);
+void logout(int ,int );
+int upload(int ,char [],int );
 
  void *new_client_thread(void *threadid)
  {
     long tid;
     tid = (long)threadid;
-    //printf("Hello World! It's me, thread #%ld!\n", tid);
-    void sigint_handler(int sig); /* prototype */
-    
-    struct sigaction sa;
-
-    sa.sa_handler = sigint_handler;
-    sa.sa_flags = 0; // or SA_RESTART
-    sigemptyset(&sa.sa_mask);
-
-    if (sigaction(SIGINT, &sa, NULL) == -1) {
-        perror("sigaction");
-        exit(1);
-    }
-
+   
     int portno ,n;
 
     struct sockaddr_in server_addr;
     struct hostent *server;
 
     
-    portno = atoi("6500");
+    portno = atoi("6702");
     int sockfd = socket(AF_INET,SOCK_STREAM,0);
     if(sockfd<0){
       perror("Error opening socket");
@@ -52,9 +43,16 @@ void loginuser(int,char[],char []);
     }
     char uname[20];
     sprintf(uname,"%ld",tid);
-    cout<<"before calling loginuser()"<<endl;
-    loginuser(sockfd,uname,uname);
+    //cout<<"before calling loginuser()"<<endl;
+    int sessionid = loginuser(sockfd,uname,uname);
     cout<<"after calling loginuser()"<<endl;
+    //sleep(1);
+    
+    char filename[20];
+    sprintf(filename,"%s","image.jpg");
+    int x = upload(sockfd,filename,sessionid);
+    logout(sockfd,sessionid);
+    
     pthread_exit(NULL);
  }
 
@@ -63,7 +61,7 @@ void loginuser(int,char[],char []);
     pthread_t threads[NUM_THREADS];
     int rc;
     long t;
-    for(t = 0; t<NUM_THREADS; t++){
+    for(t = 1; t<=NUM_THREADS; t++){
        printf("In main: creating thread %ld\n", t);
        rc = pthread_create(&threads[t], NULL, new_client_thread, (void *)t);
        if (rc){
@@ -76,5 +74,5 @@ void loginuser(int,char[],char []);
     }
 
     /* Last thing that main() should do */
-    pthread_exit(NULL);
+   pthread_exit(NULL);
  }
